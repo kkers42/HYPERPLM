@@ -4,6 +4,16 @@ All notable changes to HYPERPLM are documented here. Every entry corresponds to 
 
 Format: `MM.mm.ppp — YYYY-MM-DD — description — reviewed by`
 
+## 00.001.001 — 2026-07-21
+
+- CLAUDE.md: add Rule 0 — Claude must NEVER put secrets anywhere public (absolute rule,
+  pre-commit diff review required, incident procedure defined).
+- CLAUDE.md: add Deployment section — Docker via docker-compose, contractor portal VPS,
+  127.0.0.1:4000 behind nginx, domain hyperplm.com (Hostinger).
+- Add landing/index.html — self-contained "Coming Soon" page for hyperplm.com listing
+  platform capabilities.
+- Reviewed by: user (directed changes).
+
 ## 00.001.000 — 2026-07-21
 
 - Import baseline codebase: PLM Lite V1.0 (MIT) pulled from the live deployment at

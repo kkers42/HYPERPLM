@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HYPERPLM — Product Lifecycle Management. Coming Soon.</title>
+<meta name="description" content="HYPERPLM — lightweight, fast product lifecycle management for engineering teams. Parts, BOMs, documents, revisions. Coming soon.">
+<style>
+  :root {
+    --bg: #0b0e14;
+    --bg-panel: #121826;
+    --line: #1f2937;
+    --text: #e5e9f0;
+    --text-dim: #8b94a7;
+    --accent: #38bdf8;
+    --accent-2: #818cf8;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    min-height: 100vh;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 48px 48px;
+    background-position: center top;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
+
+  header {
+    padding: 28px 0;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .logo {
+    font-size: 1.35rem; font-weight: 800; letter-spacing: 0.08em;
+  }
+  .logo span { color: var(--accent); }
+  .badge {
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-size: 0.75rem; font-weight: 600; letter-spacing: 0.12em;
+    padding: 6px 14px; border-radius: 999px; text-transform: uppercase;
+  }
+
+  .hero { padding: 72px 0 48px; text-align: center; }
+  .hero h1 {
+    font-size: clamp(2.2rem, 6vw, 3.8rem);
+    font-weight: 800; line-height: 1.15; letter-spacing: -0.01em;
+  }
+  .hero h1 .grad {
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero p.sub {
+    margin: 20px auto 0; max-width: 620px;
+    color: var(--text-dim); font-size: 1.15rem;
+  }
+  .soon {
+    margin-top: 36px; display: inline-block;
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: 12px; padding: 14px 28px;
+    font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--accent); font-size: 0.95rem;
+  }
+
+  .caps { padding: 48px 0 24px; }
+  .caps h2 {
+    text-align: center; font-size: 1.5rem; margin-bottom: 8px;
+  }
+  .caps p.lead { text-align: center; color: var(--text-dim); margin-bottom: 36px; }
+  .grid {
+    display: grid; gap: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+  .card {
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: 12px; padding: 22px;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+  }
+  .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .card .icon {
+    width: 40px; height: 40px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(56, 189, 248, 0.12);
+    margin-bottom: 14px; font-size: 1.2rem;
+  }
+  .card h3 { font-size: 1.05rem; margin-bottom: 6px; }
+  .card p { color: var(--text-dim); font-size: 0.92rem; }
+
+  .strip {
+    margin: 56px 0; padding: 28px;
+    background: linear-gradient(135deg, rgba(56,189,248,0.08), rgba(129,140,248,0.08));
+    border: 1px solid var(--line); border-radius: 14px;
+    text-align: center;
+  }
+  .strip strong { color: var(--accent); }
+  .strip p { color: var(--text-dim); max-width: 700px; margin: 0 auto; }
+
+  footer {
+    padding: 36px 0 48px; text-align: center;
+    color: var(--text-dim); font-size: 0.85rem;
+    border-top: 1px solid var(--line); margin-top: 24px;
+  }
+  footer .domain { color: var(--text); font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo">HYPER<span>PLM</span></div>
+      <div class="badge">Coming Soon</div>
+    </header>
+
+    <section class="hero">
+      <h1>Product Lifecycle Management,<br><span class="grad">without the bloat.</span></h1>
+      <p class="sub">
+        HYPERPLM is a fast, lightweight PLM for engineering teams that outgrew
+        spreadsheets but refuse to fight enterprise software. Parts, BOMs,
+        documents, and revisions — in one place, in your browser.
+      </p>
+      <div class="soon">Launching Soon</div>
+    </section>
+
+    <section class="caps">
+      <h2>What's inside</h2>
+      <p class="lead">Everything you need to control your product data. Nothing you don't.</p>
+      <div class="grid">
+        <div class="card">
+          <div class="icon">&#9881;&#65039;</div>
+          <h3>Parts Management</h3>
+          <p>Part numbers, names, revisions, part levels, and 10+ custom attributes — searchable and filterable.</p>
+        </div>
+        <div class="card">
+          <div class="icon">&#127959;&#65039;</div>
+          <h3>Assemblies &amp; BOMs</h3>
+          <p>Build parent/child assembly trees, view recursive indented BOMs, and run Where-Used queries instantly.</p>
+        </div>
+        <div class="card">
+          <div class="icon">&#128202;</div>
+          <h3>Excel BOM Export</h3>
+          <p>Download clean, indented BOMs as .xlsx — ready for purchasing, quoting, or the shop floor.</p>
+        </div>
+        <div class="card">
+          <div class="icon">&#128193;</div>
+          <h3>Document Control</h3>
+          <p>Attach drawings, CAD files, specs, and datasheets to parts — with automatic file versioning.</p>
+        </div>
+        <div class="card">
+          <div class="icon">&#128274;</div>
+          <h3>Check-In / Check-Out</h3>
+          <p>Advisory locks tied to the logged-in user keep two engineers from stepping on the same part.</p>
+        </div>
+        <div class="card">
+          <div class="icon">&#9989;</div>
+          <h3>Release Workflow</h3>
+          <p>Move parts from Prototype to Released. Released parts lock against edits — reversible by role.</p>
+        </div>
+        <div class="card">
+          <div class="icon">&#128295;</div>
+          <h3>CAD-Aware Versioning</h3>
+          <p>Native handling for .prt, .asm, .step, .stl, .sldprt and more — with open-in-place support on LAN.</p>
+        </div>
+        <div class="card">
+          <div class="icon">&#128101;</div>
+          <h3>Roles &amp; Access</h3>
+          <p>Role-based permissions with local accounts or Google sign-in. You control who can view, edit, and release.</p>
+        </div>
+        <div class="card">
+          <div class="icon">&#9889;</div>
+          <h3>Fast &amp; Self-Contained</h3>
+          <p>Modern web stack, no heavyweight install, no per-seat enterprise pricing games. It just runs.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="strip">
+      <p><strong>Built by engineers, for engineers.</strong><br>
+      HYPERPLM grew out of a real workshop's need to track real parts —
+      not a sales deck. The full platform is in active development.</p>
+    </section>
+
+    <footer>
+      <div class="domain">hyperplm.com</div>
+      <div>&copy; 2026 HYPERPLM. All rights reserved.</div>
+    </footer>
+  </div>
+</body>
+</html>
