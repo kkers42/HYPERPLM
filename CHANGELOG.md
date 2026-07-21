@@ -4,6 +4,35 @@ All notable changes to HYPERPLM are documented here. Every entry corresponds to 
 
 Format: `MM.mm.ppp — YYYY-MM-DD — description — reviewed by`
 
+## 00.002.000 — 2026-07-21 — Phase 1: Security Hardening
+
+Engine-agnostic hardening ahead of the multi-tenant + PostgreSQL migration (Phase 2).
+
+- **SECRET_KEY fail-fast**: new `config.validate()` raises and refuses startup in
+  production if SECRET_KEY is unset/default/<32 chars (JWTs are forgeable otherwise,
+  and this repo is public). Warns instead of failing in development. Also validates
+  Google OAuth creds and https base URL. Called on app startup (main.py).
+- **No default admin in production**: removed the hardcoded `admin`/`admin123` seed.
+  First admin now comes from BOOTSTRAP_ADMIN_USERNAME/PASSWORD env (forced password
+  change on first login). Production with no bootstrap creds creates no account;
+  dev keeps a throwaway admin with a loud warning. (database.py)
+- **Login rate limiting**: new app/security.py in-memory sliding-window limiter
+  (10 attempts / 5 min / client IP, X-Forwarded-For aware) applied to /auth/login
+  and /auth/windows. Returns 429 + Retry-After.
+- **Path-traversal guard hardened**: files.get_file_path now uses Path.is_relative_to
+  instead of str.startswith, closing the sibling-prefix bypass (e.g. /srv/plm-files-evil).
+- **Security headers middleware**: X-Content-Type-Options, X-Frame-Options=DENY,
+  Referrer-Policy, and HSTS (prod+https). CSP deferred until the inline-script
+  frontend is reworked.
+- **Password policy centralized**: config.PASSWORD_MIN_LENGTH (default 8), enforced in
+  change-password.
+- App title renamed PLM Lite -> HYPERPLM. .env.example documents all new vars.
+- Verified: py_compile clean; functional tests pass (prod fail-fast, dev warn, limiter
+  10-then-429, path guard blocks traversal + sibling-prefix); full app imports with
+  middleware wired.
+- Reviewed by: Claude (author session) + automated functional tests. PENDING independent
+  review by separate AI session or user per CLAUDE.md rule 5.
+
 ## 00.001.004 — 2026-07-21
 
 - LICENSE: set copyright holder to legal name Joshua M. Grace.

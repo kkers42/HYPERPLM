@@ -135,6 +135,8 @@ def get_file_path(stored_path: str) -> Path:
     """Validate and return a safe path for download."""
     p = Path(stored_path).resolve()
     root = config.FILES_ROOT.resolve()
-    if not str(p).startswith(str(root)):
+    # is_relative_to is exact — unlike str.startswith, it won't accept a sibling
+    # directory that merely shares a name prefix (e.g. /srv/plm-files-evil).
+    if p != root and not p.is_relative_to(root):
         raise PermissionError("Path traversal detected")
     return p

@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from .auth import get_current_user, optional_user
 from . import config
 from .database import Database
+from .security import SecurityHeadersMiddleware
 from .routers import (
     admin_router,
     auth_router,
@@ -22,12 +23,19 @@ from .routers import (
 _STATIC = Path(__file__).parent.parent / "static"
 
 
-app = FastAPI(title="PLM Lite", version="1.0.0", docs_url="/api/docs", redoc_url=None)
+app = FastAPI(title="HYPERPLM", version="1.0.0", docs_url="/api/docs", redoc_url=None)
+
+# ── Middleware ───────────────────────────────────────────────────────────────
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 # ── Startup ──────────────────────────────────────────────────────────────────
 
 @app.on_event("startup")
 async def startup() -> None:
+    # Fail fast on insecure production config; warn in development.
+    for warning in config.validate():
+        print(f"[HYPERPLM] CONFIG WARNING: {warning}")
     db = Database()
     db.initialize()
 

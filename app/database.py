@@ -5,6 +5,7 @@ Short-lived SQLite connections; safe for network share and concurrent access.
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from pathlib import Path
 from typing import Optional
@@ -51,14 +52,54 @@ class Database:
                 )
                 conn.commit()
             if conn.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0:
-                import bcrypt as _bcrypt_lib
-                admin_hash = _bcrypt_lib.hashpw(b"admin123", _bcrypt_lib.gensalt()).decode()
-                admin_role = conn.execute("SELECT id FROM roles WHERE name='Admin'").fetchone()
-                conn.execute(
-                    "INSERT INTO users (username, password_hash, role_id, must_change_password) VALUES (?,?,?,1)",
-                    ("admin", admin_hash, admin_role["id"] if admin_role else None),
-                )
-                conn.commit()
+                self._seed_bootstrap_admin(conn)
+
+    def _seed_bootstrap_admin(self, conn: sqlite3.Connection) -> None:
+        """Create the first admin account.
+
+        Credentials come from BOOTSTRAP_ADMIN_USERNAME / BOOTSTRAP_ADMIN_PASSWORD
+        in the environment and the account is forced to change its password on
+        first login. In production, if those are not set, NO account is created —
+        an admin must be provisioned explicitly (no default/shared credentials
+        ever ship). In development only, a throwaway 'admin' account is created
+        for convenience, with a loud warning.
+        """
+        import bcrypt as _bcrypt_lib
+
+        admin_role = conn.execute("SELECT id FROM roles WHERE name='Admin'").fetchone()
+        role_id = admin_role["id"] if admin_role else None
+
+        username = os.getenv("BOOTSTRAP_ADMIN_USERNAME", "").strip()
+        password = os.getenv("BOOTSTRAP_ADMIN_PASSWORD", "")
+
+        if username and password:
+            admin_hash = _bcrypt_lib.hashpw(password.encode(), _bcrypt_lib.gensalt()).decode()
+            conn.execute(
+                "INSERT INTO users (username, password_hash, role_id, must_change_password) VALUES (?,?,?,1)",
+                (username, admin_hash, role_id),
+            )
+            conn.commit()
+            return
+
+        if config.IS_PRODUCTION:
+            print(
+                "[HYPERPLM] No users exist and BOOTSTRAP_ADMIN_USERNAME/PASSWORD are unset. "
+                "No admin account was created — provision one explicitly. "
+                "Refusing to seed default credentials in production."
+            )
+            return
+
+        # Development-only convenience account. Never reached in production.
+        admin_hash = _bcrypt_lib.hashpw(b"admin123", _bcrypt_lib.gensalt()).decode()
+        conn.execute(
+            "INSERT INTO users (username, password_hash, role_id, must_change_password) VALUES (?,?,?,1)",
+            ("admin", admin_hash, role_id),
+        )
+        conn.commit()
+        print(
+            "[HYPERPLM] DEV MODE: seeded throwaway admin/admin123 (must change on first login). "
+            "This never happens when ENVIRONMENT=production."
+        )
 
     # ── Roles ─────────────────────────────────────────────────────────────────
 

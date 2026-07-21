@@ -19,6 +19,7 @@ from ..auth import (
 from .. import config
 from ..database import Database
 from ..models import LoginRequest, MessageResponse
+from ..security import rate_limit_login
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -59,7 +60,7 @@ async def google_callback(code: str, response: Response):
 
 # ── Windows identity login ────────────────────────────────────────────────────
 
-@router.post("/windows")
+@router.post("/windows", dependencies=[Depends(rate_limit_login)])
 async def windows_login(body: dict, response: Response):
     """
     Called by the login page when AUTH_MODE=windows.
@@ -91,7 +92,7 @@ async def windows_login(body: dict, response: Response):
     }
 
 
-@router.post("/login")
+@router.post("/login", dependencies=[Depends(rate_limit_login)])
 async def local_login(body: LoginRequest, response: Response):
     if config.AUTH_MODE != "local":
         raise HTTPException(400, "Local login not enabled")
@@ -138,8 +139,8 @@ async def me(user: dict = Depends(get_current_user)):
 @router.post("/change-password")
 async def change_password(body: dict, user: dict = Depends(get_current_user)):
     new_pw = body.get("new_password", "")
-    if len(new_pw) < 6:
-        raise HTTPException(400, "Password must be at least 6 characters")
+    if len(new_pw) < config.PASSWORD_MIN_LENGTH:
+        raise HTTPException(400, f"Password must be at least {config.PASSWORD_MIN_LENGTH} characters")
     db = Database()
     db.update_user_password(user["id"], hash_password(new_pw), must_change=0)
     return MessageResponse(message="Password changed")
