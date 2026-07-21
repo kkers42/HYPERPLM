@@ -4,6 +4,13 @@ All notable changes to HYPERPLM are documented here. Every entry corresponds to 
 
 Format: `MM.mm.ppp — YYYY-MM-DD — description — reviewed by`
 
+## 00.002.001 — 2026-07-21
+
+- Record independent review of Phase 1 in docs/phase1_review_followups.md (satisfies
+  CLAUDE.md rule 5). Verdict: safe to ship; filed non-blocking follow-ups (rate limiter
+  refinements, bootstrap password validation, lifespan migration, redundant path check).
+- Reviewed by: user (independent review pass).
+
 ## 00.002.000 — 2026-07-21 — Phase 1: Security Hardening
 
 Engine-agnostic hardening ahead of the multi-tenant + PostgreSQL migration (Phase 2).
