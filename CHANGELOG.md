@@ -4,6 +4,14 @@ All notable changes to HYPERPLM are documented here. Every entry corresponds to 
 
 Format: `MM.mm.ppp — YYYY-MM-DD — description — reviewed by`
 
+## 00.001.002 — 2026-07-21
+
+- Landing page rethemed for motorsports: racing red/amber palette, hero and all
+  capability copy rewritten for race teams (build trees, spares, setup sheets,
+  trailer pack lists, tech inspection). Deployed live to hyperplm.com (HTTP;
+  SSL pending user-run certbot).
+- Reviewed by: user (directed motorsports focus).
+
 ## 00.001.001 — 2026-07-21
 
 - CLAUDE.md: add Rule 0 — Claude must NEVER put secrets anywhere public (absolute rule,
