@@ -4,10 +4,34 @@ HYPERPLM_PAT.txt
 *.pem
 *.key
 .env
+*.env
 .env.*
+!.env.example
 
 # Python
 __pycache__/
+*.py[cod]
 *.pyc
+*.pyo
 venv/
 .venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Data (do not commit DB or uploaded files)
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Server-side deploy script (created on server, not tracked)
+deploy.sh
