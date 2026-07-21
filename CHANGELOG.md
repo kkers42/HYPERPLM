@@ -4,6 +4,11 @@ All notable changes to HYPERPLM are documented here. Every entry corresponds to 
 
 Format: `MM.mm.ppp — YYYY-MM-DD — description — reviewed by`
 
+## 00.001.004 — 2026-07-21
+
+- LICENSE: set copyright holder to legal name Joshua M. Grace.
+- Reviewed by: user (provided legal name).
+
 ## 00.001.003 — 2026-07-21
 
 - Add LICENSE: proprietary, All Rights Reserved (relicensed from the prior MIT "PLM Lite"
