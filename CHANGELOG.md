@@ -4,6 +4,18 @@ All notable changes to HYPERPLM are documented here. Every entry corresponds to 
 
 Format: `MM.mm.ppp — YYYY-MM-DD — description — reviewed by`
 
+## 00.002.004 — 2026-07-21
+
+- Record independent Phase 2 design review in docs/phase2_design.md §12; flip status to
+  Reviewed. Design passed; two-layer isolation confirmed correctly specified. Five
+  non-blocking implementation follow-ups filed: (1) JWT active_org_id is a hint, re-read
+  membership/role every request; (2) keep membership/active-org resolution on the global
+  non-tenant path (outside RLS GUC); (3) hand-author all RLS DDL via op.execute, never
+  Alembic autogenerate; (4) unset-GUC must fail closed loudly (bare current_setting),
+  align §8 test 2; (5) do not wire the platform-admin RLS-bypass path until Phase 3.
+- Reviewed by: independent review session (separate from the implementing session, per
+  CLAUDE.md rule 5).
+
 ## 00.002.003 — 2026-07-21
 
 - Finalize Phase 2 design decisions in docs/phase2_design.md: (1) SQLAlchemy Core over
