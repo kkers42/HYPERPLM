@@ -4,6 +4,16 @@ All notable changes to HYPERPLM are documented here. Every entry corresponds to 
 
 Format: `MM.mm.ppp — YYYY-MM-DD — description — reviewed by`
 
+## 00.002.002 — 2026-07-21
+
+- Add docs/phase2_design.md — DRAFT design for Phase 2 (multi-tenancy + PostgreSQL).
+  Covers org/membership model, two-layer data isolation (app scoping + Postgres RLS as
+  hard backstop, which structurally closes the IDOR class), SQLite->Postgres migration
+  (psycopg 3 + versioned migrations, no data migration since not yet deployed), minimal
+  auth changes, folded-in Phase 1 follow-ups, isolation test plan, module layout, and
+  4 open decisions. No code yet — awaiting review.
+- Reviewed by: PENDING (design draft for user/AI review before implementation).
+
 ## 00.002.001 — 2026-07-21
 
 - Record independent review of Phase 1 in docs/phase1_review_followups.md (satisfies
