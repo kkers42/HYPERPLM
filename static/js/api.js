@@ -10,7 +10,7 @@
  */
 const BASE_PATH = (() => {
   // e.g. at https://3dprintdudes.io/plm/app → base is /plm
-  // e.g. at http://192.168.1.37:8070/app    → base is (empty string)
+  // e.g. at http://<server>:8070/app    → base is (empty string)
   const parts = window.location.pathname.split('/');
   // pathname is like /plm/app or /app — drop the last segment (page name)
   parts.pop();

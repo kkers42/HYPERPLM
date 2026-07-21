@@ -46,13 +46,13 @@ CAD_EXTENSIONS: set[str] = set(
 
 # ── Network open-in-place ────────────────────────────────────────────────────
 # UNC root that Windows clients use to open CAD files directly.
-# E.g. \\192.168.1.37\plm-files  — must be a Windows share of the same
+# E.g. \\<file-server>\plm-files  — must be a Windows share of the same
 # directory that FILES_ROOT points to inside the container.
 # Leave blank to disable the "Open" button.
 FILES_UNC_ROOT: str = os.getenv("FILES_UNC_ROOT", "")
 
 # Optional mapped drive letter that workstations use for the share above.
-# E.g. if clients map \\192.168.1.37\plm-files as Z: set this to Z:
+# E.g. if clients map \\<file-server>\plm-files as Z: set this to Z:
 # When set, the plmopen:// URI uses the drive letter instead of the UNC path
 # (some CAD apps handle drive letters more reliably than UNC).
 FILES_MAPPED_DRIVE: str = os.getenv("FILES_MAPPED_DRIVE", "")

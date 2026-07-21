@@ -139,7 +139,7 @@ plus a tiny runner (or `yoyo-migrations`). A product's schema will keep evolving
 
 ### Where Postgres runs
 Add a **Postgres container** to the app's docker-compose on the contractor VPS
-(72.61.0.186), bound to localhost only (the VPS already runs MySQL on 3306; Postgres will
+(see R:\port_mapping.txt), bound to localhost only (the VPS already runs MySQL on 3306; Postgres will
 take 5432 internal). Credentials via server-side env / Docker secrets — never in the repo
 (CLAUDE.md rule 0). Port map updated when provisioned.
 
@@ -224,7 +224,7 @@ Table metadata) instead of a hand-rolled SQL runner.
 1. **DB access layer → SQLAlchemy Core** (over psycopg 3). More portable; the data layer
    in `database.py` is reworked into Core constructs, engine + pool in `db.py`. Alembic for
    migrations.
-2. **Postgres hosting → Docker container on the contractor VPS** (72.61.0.186), localhost-only,
+2. **Postgres hosting → Docker container on the contractor VPS** (see R:\port_mapping.txt), localhost-only,
    in the app's docker-compose. Port 5432 internal. Credentials server-side only.
 3. **Org model → multi-org capable now.** `org_members` supports a user in several orgs;
    active-org switcher; UX may default to one.

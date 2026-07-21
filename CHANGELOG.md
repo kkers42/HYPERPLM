@@ -4,6 +4,15 @@ All notable changes to HYPERPLM are documented here. Every entry corresponds to 
 
 Format: `MM.mm.ppp — YYYY-MM-DD — description — reviewed by`
 
+## 00.002.005 — 2026-07-21
+
+- Scrub infrastructure IPs from the public repo (CLAUDE.md rule 0/7): replaced the
+  contractor VPS IP in docs/phase2_design.md with a "see R:\port_mapping.txt" reference,
+  and genericized the LAN example IPs (192.168.1.37 -> <file-server>/<server>) inherited
+  from the PLM import in .env.example, app/config.py, static/js/api.js. HEAD only — the IP
+  remains in prior history and was already public; no history rewrite (per user decision).
+- Reviewed by: user (directed the scrub).
+
 ## 00.002.004 — 2026-07-21
 
 - Record independent Phase 2 design review in docs/phase2_design.md §12; flip status to
