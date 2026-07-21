@@ -8,3 +8,8 @@ aiofiles==24.1.0
 openpyxl==3.1.5
 python-dotenv==1.0.1
 pywin32==308; sys_platform == "win32"
+
+# Phase 2 — PostgreSQL data layer (SQLAlchemy Core + psycopg 3 + Alembic migrations)
+SQLAlchemy==2.0.36
+psycopg[binary]==3.2.3
+alembic==1.14.0

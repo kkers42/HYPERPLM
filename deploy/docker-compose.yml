@@ -1,0 +1,44 @@
+# HYPERPLM — contractor VPS deployment (Docker)
+# PostgreSQL + app, both bound to localhost; the host's nginx fronts the app.
+# Secrets come from deploy/.env on the server (gitignored) — never committed (rule 0).
+# Host/IP is recorded in R:\port_mapping.txt, not here.
+#
+# Usage (on the server, from the repo's deploy/ dir):
+#   docker compose up -d db          # start Postgres
+#   ...run Alembic migrations (see docs), then:
+#   docker compose up -d             # start the app too (once wired to Postgres, step 4)
+
+name: hyperplm
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: hyperplm-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - hyperplm_pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"   # localhost only — never expose Postgres publicly
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: ..
+    container_name: hyperplm-app
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:4000:8080"   # nginx on the host proxies to this
+
+volumes:
+  hyperplm_pgdata:
