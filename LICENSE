@@ -1,0 +1,52 @@
+HYPERPLM — PROPRIETARY SOFTWARE LICENSE
+Copyright (c) 2026 Josh Kegger. All Rights Reserved.
+
+1. OWNERSHIP
+   HYPERPLM, including all source code, object code, documentation, designs,
+   assets, and related materials in this repository (the "Software"), is the
+   exclusive property of Josh Kegger ("the Owner") and is protected by
+   copyright and other intellectual property laws.
+
+2. NO LICENSE GRANTED
+   No license, right, or permission is granted to any person or entity by the
+   mere availability of this Software in a public or private repository.
+   Viewing the Software does not grant any right to use it. All rights not
+   expressly granted in a separate written agreement signed by the Owner are
+   reserved.
+
+3. RESTRICTIONS
+   Without the prior express written permission of the Owner, you may NOT:
+     (a) use, run, execute, or deploy the Software, in whole or in part, for
+         any purpose, whether commercial or noncommercial;
+     (b) copy, reproduce, publish, or distribute the Software or any portion
+         of it;
+     (c) modify, adapt, translate, or create derivative works from the
+         Software;
+     (d) sublicense, sell, rent, lease, or otherwise transfer any rights in
+         the Software;
+     (e) remove, alter, or obscure any copyright, trademark, or other
+         proprietary notice.
+
+4. NO CONTRIBUTION LICENSE
+   Any contribution submitted to this repository is assigned to and becomes
+   the property of the Owner unless a separate written agreement states
+   otherwise.
+
+5. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+
+6. LIMITATION OF LIABILITY
+   IN NO EVENT SHALL THE OWNER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING
+   FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+   DEALINGS IN THE SOFTWARE.
+
+7. CONTACT
+   For licensing inquiries, contact the Owner.
+
+Prior versions of portions of this Software were authored by the same Owner
+and previously distributed under the MIT License as "PLM Lite". That prior
+MIT grant applies only to those prior releases; this repository and all
+versions of HYPERPLM are licensed solely under the terms above.

@@ -1,8 +1,8 @@
-# PLM Lite V1.0
+# HYPERPLM
 
-A lightweight web-based Product Lifecycle Management system built with FastAPI and vanilla JS.
+A fast, lightweight Product Lifecycle Management system built for motorsports, using FastAPI and vanilla JS.
 
-**MIT License — Open Source**
+**Proprietary — All Rights Reserved. See [LICENSE](LICENSE).**
 
 ---
 

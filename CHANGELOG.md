@@ -4,6 +4,16 @@ All notable changes to HYPERPLM are documented here. Every entry corresponds to 
 
 Format: `MM.mm.ppp — YYYY-MM-DD — description — reviewed by`
 
+## 00.001.003 — 2026-07-21
+
+- Add LICENSE: proprietary, All Rights Reserved (relicensed from the prior MIT "PLM Lite"
+  by the same owner; prior MIT grant applies only to prior PLM Lite releases).
+- README: retitled PLM Lite -> HYPERPLM, replaced "MIT License — Open Source" with
+  proprietary notice.
+- static/index.html: replaced "Open Source on GitHub / PLM Lite V1.0" footer with
+  HYPERPLM All Rights Reserved notice.
+- Reviewed by: user (chose proprietary license).
+
 ## 00.001.002 — 2026-07-21
 
 - Landing page rethemed for motorsports: racing red/amber palette, hero and all
