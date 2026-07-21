@@ -1,0 +1,13 @@
+# Secrets — never commit tokens, keys, or credentials (public repo)
+HYPERPLM_PAT.txt
+*_PAT.txt
+*.pem
+*.key
+.env
+.env.*
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
