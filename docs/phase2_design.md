@@ -1,6 +1,6 @@
 # Phase 2 Design — Multi-Tenancy + PostgreSQL
 
-**Status:** DRAFT for review (no code written yet).
+**Status:** DRAFT — open decisions resolved (see §11); ready to implement pending final review.
 **Goal:** Turn the single-tenant PLM into a multi-tenant SaaS where every team's data
 is hard-isolated — one team cannot see another team's data — backed by PostgreSQL.
 
@@ -39,9 +39,12 @@ retrofit.
 - **`organizations`** — the tenant boundary (id, name, slug, owner_user_id, created_at).
 - **`org_members`** — user↔org join with a per-org role (org_id, user_id, role_id).
   `UNIQUE(org_id, user_id)`. A user can be a member of multiple orgs with different roles.
-- **`roles`** gain a nullable `org_id`: `NULL` = system built-in (shared catalog: Owner,
-  Admin, Engineer, Viewer); non-null = a custom role owned by that org (future). Ability
-  flags (`can_view/write/release/upload/checkout/admin`) are unchanged.
+- **`roles` are per-org custom roles** (decision §11.4). `roles` becomes a tenant-scoped
+  table: `org_id BIGINT NOT NULL`, `UNIQUE(org_id, name)`, with the existing ability flags
+  (`can_view/write/release/upload/checkout/admin`). On org creation, a default set (Owner,
+  Admin, Engineer, Viewer) is **seeded as editable rows for that org**, and org admins can
+  add/edit/delete their own roles. `org_members.role_id` references a role in the same org.
+  The existing role CRUD in `database.py`/`admin_router` becomes org-scoped.
 - **Active org**: a user with multiple orgs has one active org per session. The JWT carries
   `active_org_id`; an endpoint lets the user switch. All data operations run against the
   active org.
@@ -93,9 +96,10 @@ structurally, not by per-router checks.
 
 ### Tables that get `org_id` + RLS
 `parts`, `part_attributes`, `part_revisions`, `part_relationships`, `documents`,
-`file_versions`, `audit_log`. (Child tables carry `org_id` directly, rather than only via a
-join, so RLS is simple and fast.) `parts` unique constraint changes:
-`UNIQUE(part_number)` → **`UNIQUE(org_id, part_number)`** so two teams can reuse part numbers.
+`file_versions`, `audit_log`, **and `roles`** (per-org, decision §11.4). Child tables carry
+`org_id` directly, rather than only via a join, so RLS is simple and fast. `parts` unique
+constraint changes: `UNIQUE(part_number)` → **`UNIQUE(org_id, part_number)`** so two teams
+can reuse part numbers.
 
 ### Tables that are NOT tenant-scoped
 `users` (global identity), `organizations`, and future global reference data (tracks,
@@ -105,24 +109,28 @@ disciplines in Phase 5) — global read, no RLS.
 
 ## 5. PostgreSQL migration
 
-### Driver / access style
-Keep the current thin, raw-SQL data layer (no heavy ORM) — swap `sqlite3` for **psycopg 3**
-with a connection pool (`psycopg_pool`). Dialect deltas to handle:
+### Driver / access style — SQLAlchemy Core (decision §11.1)
+Use **SQLAlchemy Core** (not the full ORM) over **psycopg 3** as the driver, with the
+SQLAlchemy engine connection pool. `database.py` is reworked from hand-written SQLite SQL
+into Core constructs (`Table` metadata + `select()/insert()/update()/delete()`), which
+handles placeholders, identity columns, and dialect differences for us and keeps the door
+open to other engines. This is a larger change to `database.py` than the raw-driver option
+would have been — the **router and business logic stay put**, but the data layer is
+substantially rewritten. Tracked as such so the "modify, don't rewrite" rule is applied
+with eyes open: the rewrite is scoped to the DB access layer only.
 
-| SQLite | PostgreSQL |
-|--------|-----------|
-| `INTEGER PRIMARY KEY` autoincrement | `BIGSERIAL` / `GENERATED ... AS IDENTITY` |
-| `?` placeholders | `%s` placeholders |
-| `PRAGMA journal_mode/foreign_keys/...` | removed (FKs always on) |
-| `INSERT ... ON CONFLICT DO UPDATE` | same (Postgres-native) |
-| `CURRENT_TIMESTAMP`, recursive CTE | compatible |
-| short-lived connections | pooled connections + per-request txn |
-
-A small compatibility shim centralizes placeholder style so the data layer stays readable.
+Notes:
+- The recursive BOM CTE is expressed via `select().cte(recursive=True)` (or a small
+  `text()` escape hatch if clearer) — behavior preserved.
+- `INSERT ... ON CONFLICT DO UPDATE` uses `sqlalchemy.dialects.postgresql.insert(...).on_conflict_do_update`.
+- SQLite `PRAGMA`s are dropped; Postgres enforces FKs natively.
 
 ### Connection lifecycle (FastAPI dependency)
-Acquire pooled connection → `SET LOCAL app.current_org` → run handlers in one transaction →
-commit/rollback → release. Exposed as a `get_db(org_id)` dependency yielding a `TenantDB`.
+Acquire a pooled connection from the SQLAlchemy engine → begin a transaction →
+`conn.execute(text("SET LOCAL app.current_org = :o"), {"o": org_id})` → run handlers →
+commit/rollback → release. Exposed as a `get_db(org_id)` dependency yielding a `TenantDB`
+that wraps the scoped connection. Because `SET LOCAL` is transaction-scoped, the org binding
+cannot leak to another request reusing the pooled connection.
 
 ### Migrations
 Replace "apply `schema.sql` at startup" with **versioned migrations**: `db/migrations/NNN_*.sql`
@@ -180,16 +188,20 @@ reviewed.
 
 ```
 app/
-  db.py          # NEW: psycopg pool, connection/transaction lifecycle, placeholder shim
+  db.py          # NEW: SQLAlchemy engine + pool, Table metadata, per-request txn + org GUC
   tenancy.py     # NEW: org/membership logic, TenantDB scoped handle, active-org resolution
-  database.py    # MODIFIED: methods take/assume org scope; raw SQL ported to Postgres
+  database.py    # REWRITTEN (data layer only): SQLAlchemy Core queries, org-scoped
   auth.py        # MODIFIED: JWT active_org_id, membership resolution
   routers/
-    orgs_router.py   # NEW: create/list orgs, switch active org, list members
+    orgs_router.py   # NEW: create/list orgs, switch active org, members
+    roles_router.py  # NEW (or extend admin_router): per-org role CRUD
 db/
-  migrations/    # NEW: NNN_*.sql versioned migrations + runner
+  migrations/    # NEW: versioned migrations + runner (Alembic pairs naturally with SQLAlchemy)
 tests/           # NEW: pytest isolation suite
 ```
+
+Since we're on SQLAlchemy, **Alembic** is the natural migrations tool (autogenerate from the
+Table metadata) instead of a hand-rolled SQL runner.
 
 `main.py` stays the thin entry point.
 
@@ -207,13 +219,14 @@ tests/           # NEW: pytest isolation suite
 
 ---
 
-## 11. Open decisions (need confirmation before coding)
+## 11. Decisions (resolved 2026-07-21)
 
-1. **DB access layer** — raw psycopg 3 + RLS (recommended: stays close to current thin
-   style) vs SQLAlchemy Core (more machinery, more portable).
-2. **Postgres hosting** — Docker container on the contractor VPS (recommended) vs a managed
-   Postgres service.
-3. **Multi-org per user** — support many-orgs-per-user in the model now (recommended;
-   UX defaults to one) vs single-org-per-user MVP.
-4. **Roles** — ship built-in role catalog only for now (recommended) vs per-org custom
-   roles immediately.
+1. **DB access layer → SQLAlchemy Core** (over psycopg 3). More portable; the data layer
+   in `database.py` is reworked into Core constructs, engine + pool in `db.py`. Alembic for
+   migrations.
+2. **Postgres hosting → Docker container on the contractor VPS** (72.61.0.186), localhost-only,
+   in the app's docker-compose. Port 5432 internal. Credentials server-side only.
+3. **Org model → multi-org capable now.** `org_members` supports a user in several orgs;
+   active-org switcher; UX may default to one.
+4. **Roles → per-org custom roles now.** `roles` is tenant-scoped (org_id + RLS); a default
+   Owner/Admin/Engineer/Viewer set is seeded per org and is editable; org-scoped role CRUD.

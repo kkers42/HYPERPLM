@@ -4,6 +4,14 @@ All notable changes to HYPERPLM are documented here. Every entry corresponds to 
 
 Format: `MM.mm.ppp — YYYY-MM-DD — description — reviewed by`
 
+## 00.002.003 — 2026-07-21
+
+- Finalize Phase 2 design decisions in docs/phase2_design.md: (1) SQLAlchemy Core over
+  psycopg raw (data layer reworked to Core + Alembic migrations), (2) Postgres in Docker on
+  contractor VPS, (3) multi-org-per-user model now, (4) per-org custom roles now (roles
+  becomes tenant-scoped with org_id + RLS). Design ready to implement pending final review.
+- Reviewed by: user (resolved the 4 open decisions).
+
 ## 00.002.002 — 2026-07-21
 
 - Add docs/phase2_design.md — DRAFT design for Phase 2 (multi-tenancy + PostgreSQL).
