@@ -4,6 +4,12 @@ All notable changes to HYPERPLM are documented here. Every entry corresponds to 
 
 Format: `MM.mm.ppp — YYYY-MM-DD — description — reviewed by`
 
+## 00.003.001 — 2026-07-25
+
+- CLAUDE.md rule 1: a version now marks a push/release, not every edit — keep working under
+  the in-progress version and bump once, as part of the push that ships it.
+- Marked Phase 2 step 1 (00.003.000) as independently reviewed by the user — PASSED.
+
 ## 00.003.000 — 2026-07-21 — Phase 2 step 1: PostgreSQL data layer + migrations
 
 Ports the existing single-tenant schema to PostgreSQL. No tenancy/RLS yet (step 2);
@@ -24,8 +30,8 @@ the running app still uses the SQLite layer — this is additive and not yet wir
   (org_id, ...) indexes once tenancy lands).
 - Verified: `alembic upgrade head --sql` renders all 9 tables + version stamp in a
   transaction; app.db imports (9 tables); DATABASE_URL guard raises when unset.
-- Reviewed by: author + offline validation. PENDING independent review (rule 5 / Flag 2);
-  live migration against real Postgres to follow this commit.
+- Reviewed by: author + offline validation, then **independent review by user — PASSED**
+  (2026-07-25). Live migration against real Postgres verified (10 tables, rev 0001).
 
 ## 00.002.005 — 2026-07-21
 

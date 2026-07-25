@@ -15,17 +15,21 @@ These rules apply to every AI session (Claude, Codex, or any other assistant) an
 
 - Format: `MM.mm.ppp` (major.minor.patch) — e.g. `00.000.000`
 - The project starts at **`00.000.000`**.
-- Current version lives in the [VERSION](VERSION) file. Bump it with every change:
+- **A version marks a push/release, not every edit.** While actively working, keep making
+  changes and commits under the *next, in-progress* version — do **not** bump the number for
+  every file modification. Bump the [VERSION](VERSION) file once, as part of the push that
+  ships that unit of work.
   - **patch** (`ppp`) — bug fixes, small tweaks, docs
   - **minor** (`mm`) — new features, new modules
   - **major** (`MM`) — breaking changes, architecture shifts
-- Every version bump gets an entry in [CHANGELOG.md](CHANGELOG.md).
+- Each shipped version gets one [CHANGELOG.md](CHANGELOG.md) entry summarizing what it
+  included (amend/extend that entry as work accumulates before the push).
 
 ## 2. GitHub — every change is documented
 
 - **Every change is committed and pushed to GitHub. No exceptions.**
 - Commit and push at the end of every working session, from every machine.
-- Commit messages state what changed and why, and reference the new version number.
+- Commit messages state what changed and why, and reference the in-progress version.
 - Never leave work sitting uncommitted on a local machine.
 - Update [CHANGELOG.md](CHANGELOG.md) in the same commit as the change it describes.
 
