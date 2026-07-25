@@ -20,21 +20,22 @@ from sqlalchemy import engine_from_config, pool
 # Make the app package importable when Alembic runs from the repo root.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.db import database_url, metadata  # noqa: E402
+from app.db import metadata, migration_url  # noqa: E402
 
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Inject the runtime URL (env-driven) into the Alembic config.
-config.set_main_option("sqlalchemy.url", database_url())
+# Migrations run as the DB owner (DDL + RLS management), which is a different,
+# more-privileged role than the app runtime (see app.db.migration_url).
+config.set_main_option("sqlalchemy.url", migration_url())
 
 target_metadata = metadata
 
 
 def run_migrations_offline() -> None:
     context.configure(
-        url=database_url(),
+        url=migration_url(),
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},

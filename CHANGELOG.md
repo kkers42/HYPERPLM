@@ -4,6 +4,29 @@ All notable changes to HYPERPLM are documented here. Every entry corresponds to 
 
 Format: `MM.mm.ppp — YYYY-MM-DD — description — reviewed by`
 
+## 00.005.000 — 2026-07-25 — Phase 2 step 3: tenant-scoped connection layer (TenantDB)
+
+Runtime plumbing for isolation. Still additive — the app isn't wired to these paths
+until step 4.
+
+- app/tenancy.py (new): tenant_session(org_id) opens a transaction and sets
+  app.current_org via SET LOCAL (transaction-scoped — cannot leak across pooled
+  connections); global_session() runs without the GUC for the global tables only.
+  TenantDB handle wraps the scoped connection (query methods attached in step 4).
+  Membership resolution (get_membership, list_user_orgs) stays on the GLOBAL path
+  (§12.2); role abilities (get_role_abilities) read under tenant_session since roles
+  is RLS-scoped. get_membership is the per-request authority on access (§12.1).
+- Split DB roles: app/db.py migration_url() (owner, for Alembic DDL/RLS) vs
+  database_url() (app runtime, non-superuser hyperplm_app so RLS binds). migrations/env.py
+  uses migration_url(); .env.example documents both URLs.
+- Server-side (VPS): hyperplm_app password generated + set; deploy/.env now carries the
+  split app/owner URLs (secrets never in repo).
+- Verified live on VPS Postgres as hyperplm_app: isolation via TenantDB (each org sees
+  only its rows); tenant tables unreadable without tenant_session (fail closed); SET LOCAL
+  does NOT leak across reused pooled connections; membership resolves on the global path;
+  role abilities read under tenant context; cross-org membership correctly absent.
+- Reviewed by: author + live validation. PENDING independent review (Flag 2).
+
 ## 00.004.000 — 2026-07-25 — Phase 2 step 2: multi-tenancy + row-level security
 
 Tenants and hard data isolation. Additive migration on the fresh (empty) schema;

@@ -251,6 +251,7 @@ TENANT_TABLES: tuple[str, ...] = (
 
 
 def database_url() -> str:
+    """App runtime URL. Connects as the non-superuser app role so RLS applies."""
     url = os.getenv("DATABASE_URL", "")
     if not url:
         raise RuntimeError(
@@ -258,6 +259,12 @@ def database_url() -> str:
             "postgresql+psycopg://hyperplm_app:<password>@localhost:5432/hyperplm"
         )
     return url
+
+
+def migration_url() -> str:
+    """URL Alembic uses. Migrations run as the DB owner (DDL + RLS management) — a
+    different, more-privileged role than the app runtime. Falls back to DATABASE_URL."""
+    return os.getenv("ALEMBIC_DATABASE_URL") or database_url()
 
 
 @lru_cache(maxsize=1)
