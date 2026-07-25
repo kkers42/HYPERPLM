@@ -4,6 +4,27 @@ All notable changes to HYPERPLM are documented here. Every entry corresponds to 
 
 Format: `MM.mm.ppp — YYYY-MM-DD — description — reviewed by`
 
+## 00.004.000 — 2026-07-25 — Phase 2 step 2: multi-tenancy + row-level security
+
+Tenants and hard data isolation. Additive migration on the fresh (empty) schema;
+the running app still uses the SQLite layer until steps 3-4.
+
+- app/db.py: add organizations + org_members; move role off users (role is now
+  per-membership); add is_platform_admin flag (capability only, no bypass path wired,
+  §12.5); make roles per-org; add org_id to all 8 tenant tables; parts uniqueness is now
+  (org_id, part_number); org-scoped indexes; TENANT_TABLES constant.
+- migrations/0002_tenancy_and_rls.py (hand-authored, §12.3): creates the tenancy tables
+  and enables ROW LEVEL SECURITY + FORCE + an isolation policy on every tenant table,
+  keyed on the app.current_org GUC via the bare current_setting() form so a query outside
+  a scoped transaction ERRORS (fail closed loud, §12.4). Creates the non-superuser
+  hyperplm_app role (LOGIN, password set server-side later) with DML grants — the app
+  must connect as a non-superuser or RLS is bypassed.
+- Verified live against Postgres on the VPS (rev 0002): isolation suite passes — no-GUC
+  query errors; each org sees only its own rows; cross-org INSERT rejected by WITH CHECK;
+  cross-org DELETE hits 0 rows; app role confirmed non-superuser; (org_id, part_number)
+  allows the same part number across orgs.
+- Reviewed by: author + live isolation validation. PENDING independent review (Flag 2).
+
 ## 00.003.001 — 2026-07-25
 
 - CLAUDE.md rule 1: a version now marks a push/release, not every edit — keep working under
