@@ -54,8 +54,18 @@ does not increment until it ships. After release, fixes will be `00.001.001`, `0
   no pool leak) / global_session (no GUC, global tables only) / TenantDB; membership on the
   global path, role abilities under tenant context. Split DB URLs (owner for migrations,
   hyperplm_app for the app). Live-validated as the app role.
-- Reviews outstanding: the tenancy migration (0002), app/tenancy.py, and the URL split are
-  PENDING independent review before the query layer is built on them.
+- Data-access layer: app/repo.py — SQLAlchemy Core queries porting the SQLite database.py.
+  Tenant ops (parts, attributes, revisions, relationships/BOM, documents, file versions,
+  audit, per-org roles) take a TenantDB and rely on RLS for scoping; INSERTs set org_id.
+  Global ops (users, orgs, members) take a global_session connection. Additive — the app
+  still runs on SQLite database.py until the routers switch over. Fixed a recursive-BOM CTE
+  type mismatch surfaced by Postgres's strict typing (cast the anchor part_id to BIGINT).
+  Live-validated on VPS Postgres: full parts/BOM/attribute/revision/audit flow works and
+  cross-org isolation holds (other org sees 0 rows, BOM empty, cross-org get returns None,
+  same part_number reusable across orgs).
+- Reviews: the PostgreSQL data layer, the tenancy migration (0002) + RLS, and the
+  tenant-scoped connection layer (app/tenancy.py) were independently reviewed by the user
+  — all APPROVED (2026-07-27).
 
 ## 00.000.001 — 2026-07-21
 
