@@ -1,20 +1,26 @@
 """
-PLM Lite V1.0 — FastAPI application entry point
+HYPERPLM — FastAPI application entry point.
+
+Thin: config validation, DB connectivity check, middleware, router wiring, and the
+static page routes. All functionality lives in modules (CLAUDE.md rule 3). The schema
+is managed by Alembic migrations, not created at startup.
 """
+from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI
 from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
-from .auth import get_current_user, optional_user
 from . import config
-from .database import Database
+from .deps import optional_ctx
 from .security import SecurityHeadersMiddleware
 from .routers import (
     admin_router,
     auth_router,
     documents_router,
+    orgs_router,
     parts_router,
     relationships_router,
     users_router,
@@ -23,26 +29,29 @@ from .routers import (
 _STATIC = Path(__file__).parent.parent / "static"
 
 
-app = FastAPI(title="HYPERPLM", version="1.0.0", docs_url="/api/docs", redoc_url=None)
-
-# ── Middleware ───────────────────────────────────────────────────────────────
-
-app.add_middleware(SecurityHeadersMiddleware)
-
-# ── Startup ──────────────────────────────────────────────────────────────────
-
-@app.on_event("startup")
-async def startup() -> None:
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     # Fail fast on insecure production config; warn in development.
     for warning in config.validate():
         print(f"[HYPERPLM] CONFIG WARNING: {warning}")
-    db = Database()
-    db.initialize()
+    # Verify the database is reachable (schema is applied via Alembic migrations).
+    try:
+        from .db import get_engine
+        with get_engine().connect() as conn:
+            conn.execute(text("SELECT 1"))
+        print("[HYPERPLM] database connection OK")
+    except Exception as e:  # noqa: BLE001 — log and continue so the login page still serves
+        print(f"[HYPERPLM] WARNING: database not reachable at startup: {e}")
+    yield
 
 
-# ── Include routers ──────────────────────────────────────────────────────────
+app = FastAPI(title="HYPERPLM", version="1.0.0", docs_url="/api/docs", redoc_url=None,
+              lifespan=lifespan)
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 app.include_router(auth_router.router)
+app.include_router(orgs_router.router)
 app.include_router(parts_router.router)
 app.include_router(relationships_router.router)
 app.include_router(documents_router.router)
@@ -53,10 +62,8 @@ app.include_router(admin_router.router)
 # ── Pages ────────────────────────────────────────────────────────────────────
 
 @app.get("/")
-async def root(user: dict = Depends(optional_user)):
-    if user:
-        return RedirectResponse(url="/app")
-    return RedirectResponse(url="/login")
+async def root(principal=Depends(optional_ctx)):
+    return RedirectResponse(url="/app" if principal else "/login")
 
 
 @app.get("/login")
@@ -69,14 +76,10 @@ async def app_page():
     return FileResponse(str(_STATIC / "app.html"))
 
 
-# ── Auth mode discovery (used by login page JS) ───────────────────────────────
-
 @app.get("/api/auth-mode")
 async def auth_mode():
     return {"mode": config.AUTH_MODE}
 
-
-# ── Feature flags (used by frontend) ─────────────────────────────────────────
 
 @app.get("/api/features")
 async def features():
@@ -86,20 +89,13 @@ async def features():
     }
 
 
-# ── PLM Open protocol handler installer ──────────────────────────────────────
-
 @app.get("/plmopen-handler.reg")
 async def plmopen_reg():
-    """
-    Download once per workstation and double-click to install.
-    Registers plmopen:// as a Windows URI scheme handler.
-    Strips the plmopen:// prefix then passes the bare network path
-    to 'start', which opens it in NX via the .prt file association.
-    """
+    """Download once per workstation to register the plmopen:// URI scheme handler."""
     reg_content = r"""Windows Registry Editor Version 5.00
 
 [HKEY_CLASSES_ROOT\plmopen]
-@="PLM Lite Open in CAD"
+@="PLM Open in CAD"
 "URL Protocol"=""
 
 [HKEY_CLASSES_ROOT\plmopen\DefaultIcon]
@@ -118,7 +114,5 @@ async def plmopen_reg():
         headers={"Content-Disposition": 'attachment; filename="plmopen-handler.reg"'},
     )
 
-
-# ── Static files ─────────────────────────────────────────────────────────────
 
 app.mount("/static", StaticFiles(directory=str(_STATIC)), name="static")

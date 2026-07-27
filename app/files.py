@@ -10,8 +10,8 @@ from pathlib import Path
 import aiofiles
 import aiofiles.os
 
-from . import config
-from .database import Database
+from . import config, repo
+from .tenancy import TenantDB
 
 
 def _ext_folder(filename: str) -> Path:
@@ -40,7 +40,7 @@ async def save_upload(
     part_id: int | None,
     description: str,
     user_id: int,
-    db: Database,
+    db: TenantDB,
 ) -> dict:
     """
     Save uploaded file, handle CAD versioning.
@@ -54,7 +54,7 @@ async def save_upload(
 
     if is_cad and part_id is not None:
         # Check if this part already has a doc with same filename
-        existing_docs = db.list_documents(part_id)
+        existing_docs = repo.list_documents(db, part_id)
         existing = next((d for d in existing_docs if d["filename"] == filename), None)
 
         if existing and god_path.exists():
@@ -70,17 +70,17 @@ async def save_upload(
 
             # Record version
             file_size = backup_path.stat().st_size
-            db.add_file_version(
-                existing["id"], label, str(backup_path), file_size, user_id
+            repo.add_file_version(
+                db, existing["id"], label, str(backup_path), file_size, user_id
             )
 
             # Rotate: keep only MAX_FILE_VERSIONS backups
-            old_versions = db.get_old_versions(existing["id"], config.MAX_FILE_VERSIONS)
+            old_versions = repo.get_old_versions(db, existing["id"], config.MAX_FILE_VERSIONS)
             for old in old_versions:
                 old_file = Path(old["backup_path"])
                 if old_file.exists():
                     old_file.unlink(missing_ok=True)
-                db.delete_file_version(old["id"])
+                repo.delete_file_version(db, old["id"])
 
     # Write the new GOD file
     async with aiofiles.open(str(god_path), "wb") as f:
@@ -88,12 +88,13 @@ async def save_upload(
 
     # Upsert document record
     if is_cad and part_id is not None:
-        existing_docs = db.list_documents(part_id)
+        existing_docs = repo.list_documents(db, part_id)
         existing = next((d for d in existing_docs if d["filename"] == filename), None)
         if existing:
             return existing  # doc record stays, file replaced on disk
 
-    return db.create_document(
+    return repo.create_document(
+        db,
         filename=filename,
         stored_path=str(god_path),
         file_type=file_type,
@@ -103,13 +104,13 @@ async def save_upload(
     )
 
 
-async def restore_version(doc_id: int, version_id: int, user_id: int, db: Database) -> None:
+async def restore_version(doc_id: int, version_id: int, user_id: int, db: TenantDB) -> None:
     """
     Restore a backup version as the GOD file.
     Current GOD file is moved to Temp/.
     """
-    doc = db.get_document(doc_id)
-    version = db.get_file_version(version_id)
+    doc = repo.get_document(db, doc_id)
+    version = repo.get_file_version(db, version_id)
     if not doc or not version:
         raise FileNotFoundError("Document or version not found")
 

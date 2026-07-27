@@ -5,9 +5,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY schema.sql .
 COPY app/ ./app/
 COPY static/ ./static/
+COPY migrations/ ./migrations/
+COPY alembic.ini .
 
 RUN mkdir -p /srv/plm/files /srv/plm
 

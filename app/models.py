@@ -13,6 +13,21 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    email: Optional[str] = None
+    org_name: Optional[str] = None
+
+
+class OrgCreate(BaseModel):
+    name: str
+
+
+class SwitchOrgRequest(BaseModel):
+    org_id: int
+
+
 class UserOut(BaseModel):
     id: int
     username: str

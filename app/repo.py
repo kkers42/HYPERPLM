@@ -101,6 +101,10 @@ def get_org(conn: Connection, org_id: int) -> Optional[dict]:
     return _one(conn.execute(select(organizations).where(organizations.c.id == org_id)))
 
 
+def get_org_by_slug(conn: Connection, slug: str) -> Optional[dict]:
+    return _one(conn.execute(select(organizations).where(organizations.c.slug == slug)))
+
+
 def add_member(conn: Connection, org_id: int, user_id: int,
                role_id: Optional[int] = None) -> dict:
     return _one(conn.execute(
@@ -538,3 +542,69 @@ def get_audit_log(db: TenantDB, page: int = 1, per_page: int = 100,
         .limit(per_page).offset((page - 1) * per_page)
     ))
     return {"total": total, "page": page, "per_page": per_page, "items": rows}
+
+
+def list_attribute_keys(db: TenantDB) -> list[str]:
+    rows = db.conn.execute(
+        select(part_attributes.c.attr_key).distinct().order_by(part_attributes.c.attr_key)
+    ).all()
+    return [r[0] for r in rows]
+
+
+def get_file_version(db: TenantDB, version_id: int) -> Optional[dict]:
+    return _one(db.conn.execute(select(file_versions).where(file_versions.c.id == version_id)))
+
+
+def get_tree(db: TenantDB, part_id: int, depth: int = 0) -> dict:
+    part = get_part(db, part_id)
+    if not part:
+        return {}
+    children = get_children(db, part_id) if depth < 20 else []
+    return {
+        "id": part_id,
+        "part_number": part["part_number"],
+        "part_name": part["part_name"],
+        "part_revision": part["part_revision"],
+        "release_status": part["release_status"],
+        "depth": depth,
+        "children": [get_tree(db, c["id"], depth + 1) for c in children],
+    }
+
+
+def list_all_relationships(db: TenantDB) -> list[dict]:
+    pr = part_relationships
+    pp, pc = parts.alias("pp"), parts.alias("pc")
+    return _all(db.conn.execute(
+        select(
+            pr.c.id, pr.c.quantity, pr.c.relationship_type, pr.c.notes, pr.c.created_at,
+            pp.c.part_number.label("parent_pn"), pp.c.part_name.label("parent_name"),
+            pc.c.part_number.label("child_pn"), pc.c.part_name.label("child_name"),
+        )
+        .select_from(pr.join(pp, pr.c.parent_part_id == pp.c.id)
+                       .join(pc, pr.c.child_part_id == pc.c.id))
+        .order_by(pp.c.part_number, pc.c.part_number)
+    ))
+
+
+# ── Org members (listed under the active org's tenant_session so roles join works) ──
+
+def list_members(db: TenantDB) -> list[dict]:
+    m, u, r = org_members, users, roles
+    return _all(db.conn.execute(
+        select(
+            m.c.user_id, u.c.username, u.c.email, m.c.role_id,
+            r.c.name.label("role_name"), m.c.created_at,
+        )
+        .select_from(
+            m.join(u, m.c.user_id == u.c.id)
+             .join(r, m.c.role_id == r.c.id, isouter=True)
+        )
+        .where(m.c.org_id == db.org_id)
+        .order_by(u.c.username)
+    ))
+
+
+def get_role_by_name(db: TenantDB, name: str) -> Optional[dict]:
+    return _one(db.conn.execute(
+        select(roles).where(func.lower(roles.c.name) == name.lower())
+    ))

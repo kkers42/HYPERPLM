@@ -1,49 +1,59 @@
 """
-PLM Lite V1.0 — User management routes (admin only)
+HYPERPLM — Member management for the active org (admin only).
+
+Users are global identities; membership + role are per-org. These routes manage the
+membership of the caller's active organization.
 """
 from fastapi import APIRouter, Depends, HTTPException
 
+from .. import config, repo
 from ..auth import hash_password
-from ..database import Database
+from ..deps import RequestContext, require_admin
 from ..models import MessageResponse, PasswordReset, UserCreate, UserUpdate
-from ..permissions import require_admin
+from ..tenancy import get_membership, global_session
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
 
-def _db() -> Database:
-    return Database()
-
-
 @router.get("")
-async def list_users(admin: dict = Depends(require_admin)):
-    return _db().list_users()
+async def list_members(ctx: RequestContext = Depends(require_admin)):
+    return repo.list_members(ctx.db)
 
 
 @router.post("", status_code=201)
-async def create_user(body: UserCreate, admin: dict = Depends(require_admin)):
-    db = _db()
-    if db.get_user_by_username(body.username):
-        raise HTTPException(409, "Username already exists")
-    pw_hash = hash_password(body.password)
-    return db.create_user(body.username, pw_hash, body.email, body.role_id)
+async def add_member(body: UserCreate, ctx: RequestContext = Depends(require_admin)):
+    # Role must belong to the active org.
+    if body.role_id is not None and not repo.get_role(ctx.db, body.role_id):
+        raise HTTPException(400, "Role does not exist in this organization")
+    with global_session() as c:
+        user = repo.get_user_by_username(c, body.username)
+        if user is None:
+            user = repo.create_user(c, body.username, body.email, hash_password(body.password))
+        else:
+            existing = get_membership(c, user["id"], ctx.org_id)
+            if existing:
+                raise HTTPException(409, "User is already a member of this organization")
+        repo.add_member(c, ctx.org_id, user["id"], body.role_id)
+    return {"id": user["id"], "username": user["username"], "role_id": body.role_id}
 
 
 @router.put("/{user_id}")
-async def update_user(user_id: int, body: UserUpdate, admin: dict = Depends(require_admin)):
-    db = _db()
-    if not db.get_user(user_id):
-        raise HTTPException(404, "User not found")
-    db.update_user(user_id, body.role_id, body.is_active)
-    return db.get_user(user_id)
+async def update_member(user_id: int, body: UserUpdate, ctx: RequestContext = Depends(require_admin)):
+    if body.role_id is not None and not repo.get_role(ctx.db, body.role_id):
+        raise HTTPException(400, "Role does not exist in this organization")
+    with global_session() as c:
+        if not get_membership(c, user_id, ctx.org_id):
+            raise HTTPException(404, "User is not a member of this organization")
+        repo.set_member_role(c, ctx.org_id, user_id, body.role_id)
+    return MessageResponse(message="Member role updated")
 
 
 @router.post("/{user_id}/reset-password")
-async def reset_password(user_id: int, body: PasswordReset, admin: dict = Depends(require_admin)):
-    db = _db()
-    if not db.get_user(user_id):
-        raise HTTPException(404, "User not found")
-    if len(body.new_password) < 6:
-        raise HTTPException(400, "Password must be at least 6 characters")
-    db.update_user_password(user_id, hash_password(body.new_password), must_change=1)
+async def reset_password(user_id: int, body: PasswordReset, ctx: RequestContext = Depends(require_admin)):
+    if len(body.new_password) < config.PASSWORD_MIN_LENGTH:
+        raise HTTPException(400, f"Password must be at least {config.PASSWORD_MIN_LENGTH} characters")
+    with global_session() as c:
+        if not get_membership(c, user_id, ctx.org_id):
+            raise HTTPException(404, "User is not a member of this organization")
+        repo.update_user_password(c, user_id, hash_password(body.new_password), must_change=1)
     return MessageResponse(message="Password reset — user must change on next login")

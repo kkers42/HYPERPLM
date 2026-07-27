@@ -63,9 +63,24 @@ does not increment until it ships. After release, fixes will be `00.001.001`, `0
   Live-validated on VPS Postgres: full parts/BOM/attribute/revision/audit flow works and
   cross-org isolation holds (other org sees 0 rows, BOM empty, cross-org get returns None,
   same part_number reusable across orgs).
+- App switchover to Postgres (the request layer now runs on RLS, not SQLite):
+  - app/deps.py — per-request principal resolution (user + active-org membership re-read
+    every request on the global path; JWT active_org_id is only a hint, §12.1) and a single
+    tenant_session per request (RequestContext) with role abilities; require_ability/require_admin.
+  - app/auth.py rewritten to pure JWT + password + Google helpers (no DB); app/accounts.py
+    service layer (register-creates-org, seed default roles, Owner membership, Google/Windows
+    first-login provisioning, default-org resolution).
+  - Routers ported onto repo + RequestContext: parts, relationships, documents (files.py
+    refactored to TenantDB), users (now org-membership management), admin (per-org roles/
+    audit/attribute keys). New orgs_router: list/create/switch active org. auth_router adds
+    /auth/register and /auth/switch flow; /me returns active-org abilities.
+  - main.py: lifespan startup (config validate + DB ping; no SQLite init), security headers,
+    orgs_router wired. Retired the SQLite era: removed database.py, schema.sql, permissions.py,
+    and the stale duplicate app/auth_router.py + app/index.html. Dockerfile ships migrations.
 - Reviews: the PostgreSQL data layer, the tenancy migration (0002) + RLS, and the
   tenant-scoped connection layer (app/tenancy.py) were independently reviewed by the user
-  — all APPROVED (2026-07-27).
+  — all APPROVED (2026-07-27). The router switchover (deps/auth/accounts/orgs + ports) is
+  PENDING review.
 
 ## 00.000.001 — 2026-07-21
 
