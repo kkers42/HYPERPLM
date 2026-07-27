@@ -13,17 +13,20 @@ These rules apply to every AI session (Claude, Codex, or any other assistant) an
 
 ## 1. Versioning
 
-- Format: `MM.mm.ppp` (major.minor.patch) — e.g. `00.000.000`
-- The project starts at **`00.000.000`**.
-- **A version marks a push/release, not every edit.** While actively working, keep making
-  changes and commits under the *next, in-progress* version — do **not** bump the number for
-  every file modification. Bump the [VERSION](VERSION) file once, as part of the push that
-  ships that unit of work.
-  - **patch** (`ppp`) — bug fixes, small tweaks, docs
-  - **minor** (`mm`) — new features, new modules
-  - **major** (`MM`) — breaking changes, architecture shifts
-- Each shipped version gets one [CHANGELOG.md](CHANGELOG.md) entry summarizing what it
-  included (amend/extend that entry as work accumulates before the push).
+- Format: `MM.mmm.ppp` — **major . version . patch**. Examples: `00.001.000`, `00.001.001`.
+- The **first working release is `00.001.000`**. Everything built before that first release
+  ships *as* `00.001.000` — no matter how much code we write, the number does **not**
+  increment while building the first version. (Repo bootstrap before any working code is
+  `00.000.xxx`.)
+- After a version is released, fixes/patches to it increment the **last** group:
+  `00.001.001`, `00.001.002`, …
+- The **next** feature release increments the **middle** group and resets the patch to 000:
+  `00.002.000` (then its patches `00.002.001`, …).
+- The **major** group (`MM`) increments only for a breaking change or major milestone.
+- Stay on the in-progress version across all edits and commits until it is released — do
+  **not** bump per edit or per work-step. The [VERSION](VERSION) file holds the current
+  version; each version gets one [CHANGELOG.md](CHANGELOG.md) entry, extended as work
+  accumulates before release.
 
 ## 2. GitHub — every change is documented
 

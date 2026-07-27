@@ -1,206 +1,66 @@
 # Changelog
 
-All notable changes to HYPERPLM are documented here. Every entry corresponds to a version bump in [VERSION](VERSION).
+All notable changes to HYPERPLM are documented here.
 
-Format: `MM.mm.ppp — YYYY-MM-DD — description — reviewed by`
+Versioning: `MM.mmm.ppp` (major . version . patch). The first working release is
+`00.001.000`; everything built before it ships *as* `00.001.000` (the number does not
+increment while building the first version). Post-release fixes bump the last group
+(`00.001.001`…); the next feature release bumps the middle group (`00.002.000`).
 
-## 00.005.000 — 2026-07-25 — Phase 2 step 3: tenant-scoped connection layer (TenantDB)
+## 00.001.000 — first version (IN DEVELOPMENT)
 
-Runtime plumbing for isolation. Still additive — the app isn't wired to these paths
-until step 4.
+The first working release. Everything below is part of building `00.001.000`; the version
+does not increment until it ships. After release, fixes will be `00.001.001`, `00.001.002`,
+…, and the next feature version will be `00.002.000`.
 
-- app/tenancy.py (new): tenant_session(org_id) opens a transaction and sets
-  app.current_org via SET LOCAL (transaction-scoped — cannot leak across pooled
-  connections); global_session() runs without the GUC for the global tables only.
-  TenantDB handle wraps the scoped connection (query methods attached in step 4).
-  Membership resolution (get_membership, list_user_orgs) stays on the GLOBAL path
-  (§12.2); role abilities (get_role_abilities) read under tenant_session since roles
-  is RLS-scoped. get_membership is the per-request authority on access (§12.1).
-- Split DB roles: app/db.py migration_url() (owner, for Alembic DDL/RLS) vs
-  database_url() (app runtime, non-superuser hyperplm_app so RLS binds). migrations/env.py
-  uses migration_url(); .env.example documents both URLs.
-- Server-side (VPS): hyperplm_app password generated + set; deploy/.env now carries the
-  split app/owner URLs (secrets never in repo).
-- Verified live on VPS Postgres as hyperplm_app: isolation via TenantDB (each org sees
-  only its rows); tenant tables unreadable without tenant_session (fail closed); SET LOCAL
-  does NOT leak across reused pooled connections; membership resolves on the global path;
-  role abilities read under tenant context; cross-org membership correctly absent.
-- Reviewed by: author + live validation. PENDING independent review (Flag 2).
+### Baseline & branding
+- Import baseline codebase: PLM Lite V1.0 from the live 3dprintdudes.io/plm deployment
+  (VPS1 /opt/plm, commit 46f5e36 + 2 untracked files) — FastAPI + vanilla JS: parts,
+  BOM/relationships, documents, auth (local/Google OAuth), check-in/out, release status,
+  Excel export. Excluded .env, deploy.sh, .git, __pycache__.
+- Proprietary LICENSE, All Rights Reserved (Joshua M. Grace); relicensed from the prior
+  MIT "PLM Lite" by the same owner. README/login footer de-MIT'd; renamed to HYPERPLM.
+- Coming-soon landing page (landing/index.html), motorsports theme (racing red/amber,
+  race-team copy). Live at https://hyperplm.com (nginx + Let's Encrypt).
+- CLAUDE.md: Rule 0 (never put secrets anywhere public), Deployment section (Docker,
+  contractor VPS, 127.0.0.1:4000 behind nginx). Infra IPs kept out of the repo.
 
-## 00.004.000 — 2026-07-25 — Phase 2 step 2: multi-tenancy + row-level security
+### Security hardening
+- `config.validate()` fail-fast: refuses production startup on unset/default/short
+  SECRET_KEY (JWTs forgeable otherwise; repo is public). Warns in development.
+- No default admin in production: removed hardcoded admin/admin123; first admin comes from
+  BOOTSTRAP_ADMIN_USERNAME/PASSWORD (forced password change on first login).
+- Login rate limiting (app/security.py, 10/5min/IP, X-Forwarded-For aware) on the auth
+  routes; security headers middleware; path-traversal guard hardened (Path.is_relative_to);
+  centralized password policy (PASSWORD_MIN_LENGTH).
+- Independent review by user — PASSED. Non-blocking follow-ups filed in
+  docs/phase1_review_followups.md (fold in during the tenancy work).
 
-Tenants and hard data isolation. Additive migration on the fresh (empty) schema;
-the running app still uses the SQLite layer until steps 3-4.
-
-- app/db.py: add organizations + org_members; move role off users (role is now
-  per-membership); add is_platform_admin flag (capability only, no bypass path wired,
-  §12.5); make roles per-org; add org_id to all 8 tenant tables; parts uniqueness is now
-  (org_id, part_number); org-scoped indexes; TENANT_TABLES constant.
-- migrations/0002_tenancy_and_rls.py (hand-authored, §12.3): creates the tenancy tables
-  and enables ROW LEVEL SECURITY + FORCE + an isolation policy on every tenant table,
-  keyed on the app.current_org GUC via the bare current_setting() form so a query outside
-  a scoped transaction ERRORS (fail closed loud, §12.4). Creates the non-superuser
-  hyperplm_app role (LOGIN, password set server-side later) with DML grants — the app
-  must connect as a non-superuser or RLS is bypassed.
-- Verified live against Postgres on the VPS (rev 0002): isolation suite passes — no-GUC
-  query errors; each org sees only its own rows; cross-org INSERT rejected by WITH CHECK;
-  cross-org DELETE hits 0 rows; app role confirmed non-superuser; (org_id, part_number)
-  allows the same part number across orgs.
-- Reviewed by: author + live isolation validation. PENDING independent review (Flag 2).
-
-## 00.003.001 — 2026-07-25
-
-- CLAUDE.md rule 1: a version now marks a push/release, not every edit — keep working under
-  the in-progress version and bump once, as part of the push that ships it.
-- Marked Phase 2 step 1 (00.003.000) as independently reviewed by the user — PASSED.
-
-## 00.003.000 — 2026-07-21 — Phase 2 step 1: PostgreSQL data layer + migrations
-
-Ports the existing single-tenant schema to PostgreSQL. No tenancy/RLS yet (step 2);
-the running app still uses the SQLite layer — this is additive and not yet wired in.
-
-- Add app/db.py — SQLAlchemy Core metadata (9 tables mirroring schema.sql, Postgres
-  types + identity PKs + stable naming convention) and a pooled engine reading
-  DATABASE_URL from env (never hardcoded).
-- Add Alembic scaffolding: alembic.ini, migrations/env.py (URL from env; notes that RLS
-  DDL must be hand-authored, never autogenerated per §12.3), script template, and
-  migrations/versions/0001_initial_schema.py (explicit op.create_table DDL — renders in
-  both online and offline modes).
-- Add deploy/docker-compose.yml — Postgres 16 (localhost-only 5432) + app (localhost
-  4000), secrets via server-side deploy/.env (gitignored). Host/IP kept in port_mapping.
-- requirements.txt: SQLAlchemy 2.0, psycopg[binary] 3.2, alembic 1.14. .env.example
-  documents DATABASE_URL / POSTGRES_*.
-- Secondary/filter indexes intentionally deferred to step 2 (they become composite
-  (org_id, ...) indexes once tenancy lands).
-- Verified: `alembic upgrade head --sql` renders all 9 tables + version stamp in a
-  transaction; app.db imports (9 tables); DATABASE_URL guard raises when unset.
-- Reviewed by: author + offline validation, then **independent review by user — PASSED**
-  (2026-07-25). Live migration against real Postgres verified (10 tables, rev 0001).
-
-## 00.002.005 — 2026-07-21
-
-- Scrub infrastructure IPs from the public repo (CLAUDE.md rule 0/7): replaced the
-  contractor VPS IP in docs/phase2_design.md with a "see R:\port_mapping.txt" reference,
-  and genericized the LAN example IPs (192.168.1.37 -> <file-server>/<server>) inherited
-  from the PLM import in .env.example, app/config.py, static/js/api.js. HEAD only — the IP
-  remains in prior history and was already public; no history rewrite (per user decision).
-- Reviewed by: user (directed the scrub).
-
-## 00.002.004 — 2026-07-21
-
-- Record independent Phase 2 design review in docs/phase2_design.md §12; flip status to
-  Reviewed. Design passed; two-layer isolation confirmed correctly specified. Five
-  non-blocking implementation follow-ups filed: (1) JWT active_org_id is a hint, re-read
-  membership/role every request; (2) keep membership/active-org resolution on the global
-  non-tenant path (outside RLS GUC); (3) hand-author all RLS DDL via op.execute, never
-  Alembic autogenerate; (4) unset-GUC must fail closed loudly (bare current_setting),
-  align §8 test 2; (5) do not wire the platform-admin RLS-bypass path until Phase 3.
-- Reviewed by: independent review session (separate from the implementing session, per
-  CLAUDE.md rule 5).
-
-## 00.002.003 — 2026-07-21
-
-- Finalize Phase 2 design decisions in docs/phase2_design.md: (1) SQLAlchemy Core over
-  psycopg raw (data layer reworked to Core + Alembic migrations), (2) Postgres in Docker on
-  contractor VPS, (3) multi-org-per-user model now, (4) per-org custom roles now (roles
-  becomes tenant-scoped with org_id + RLS). Design ready to implement pending final review.
-- Reviewed by: user (resolved the 4 open decisions).
-
-## 00.002.002 — 2026-07-21
-
-- Add docs/phase2_design.md — DRAFT design for Phase 2 (multi-tenancy + PostgreSQL).
-  Covers org/membership model, two-layer data isolation (app scoping + Postgres RLS as
-  hard backstop, which structurally closes the IDOR class), SQLite->Postgres migration
-  (psycopg 3 + versioned migrations, no data migration since not yet deployed), minimal
-  auth changes, folded-in Phase 1 follow-ups, isolation test plan, module layout, and
-  4 open decisions. No code yet — awaiting review.
-- Reviewed by: PENDING (design draft for user/AI review before implementation).
-
-## 00.002.001 — 2026-07-21
-
-- Record independent review of Phase 1 in docs/phase1_review_followups.md (satisfies
-  CLAUDE.md rule 5). Verdict: safe to ship; filed non-blocking follow-ups (rate limiter
-  refinements, bootstrap password validation, lifespan migration, redundant path check).
-- Reviewed by: user (independent review pass).
-
-## 00.002.000 — 2026-07-21 — Phase 1: Security Hardening
-
-Engine-agnostic hardening ahead of the multi-tenant + PostgreSQL migration (Phase 2).
-
-- **SECRET_KEY fail-fast**: new `config.validate()` raises and refuses startup in
-  production if SECRET_KEY is unset/default/<32 chars (JWTs are forgeable otherwise,
-  and this repo is public). Warns instead of failing in development. Also validates
-  Google OAuth creds and https base URL. Called on app startup (main.py).
-- **No default admin in production**: removed the hardcoded `admin`/`admin123` seed.
-  First admin now comes from BOOTSTRAP_ADMIN_USERNAME/PASSWORD env (forced password
-  change on first login). Production with no bootstrap creds creates no account;
-  dev keeps a throwaway admin with a loud warning. (database.py)
-- **Login rate limiting**: new app/security.py in-memory sliding-window limiter
-  (10 attempts / 5 min / client IP, X-Forwarded-For aware) applied to /auth/login
-  and /auth/windows. Returns 429 + Retry-After.
-- **Path-traversal guard hardened**: files.get_file_path now uses Path.is_relative_to
-  instead of str.startswith, closing the sibling-prefix bypass (e.g. /srv/plm-files-evil).
-- **Security headers middleware**: X-Content-Type-Options, X-Frame-Options=DENY,
-  Referrer-Policy, and HSTS (prod+https). CSP deferred until the inline-script
-  frontend is reworked.
-- **Password policy centralized**: config.PASSWORD_MIN_LENGTH (default 8), enforced in
-  change-password.
-- App title renamed PLM Lite -> HYPERPLM. .env.example documents all new vars.
-- Verified: py_compile clean; functional tests pass (prod fail-fast, dev warn, limiter
-  10-then-429, path guard blocks traversal + sibling-prefix); full app imports with
-  middleware wired.
-- Reviewed by: Claude (author session) + automated functional tests. PENDING independent
-  review by separate AI session or user per CLAUDE.md rule 5.
-
-## 00.001.004 — 2026-07-21
-
-- LICENSE: set copyright holder to legal name Joshua M. Grace.
-- Reviewed by: user (provided legal name).
-
-## 00.001.003 — 2026-07-21
-
-- Add LICENSE: proprietary, All Rights Reserved (relicensed from the prior MIT "PLM Lite"
-  by the same owner; prior MIT grant applies only to prior PLM Lite releases).
-- README: retitled PLM Lite -> HYPERPLM, replaced "MIT License — Open Source" with
-  proprietary notice.
-- static/index.html: replaced "Open Source on GitHub / PLM Lite V1.0" footer with
-  HYPERPLM All Rights Reserved notice.
-- Reviewed by: user (chose proprietary license).
-
-## 00.001.002 — 2026-07-21
-
-- Landing page rethemed for motorsports: racing red/amber palette, hero and all
-  capability copy rewritten for race teams (build trees, spares, setup sheets,
-  trailer pack lists, tech inspection). Deployed live to hyperplm.com (HTTP;
-  SSL pending user-run certbot).
-- Reviewed by: user (directed motorsports focus).
-
-## 00.001.001 — 2026-07-21
-
-- CLAUDE.md: add Rule 0 — Claude must NEVER put secrets anywhere public (absolute rule,
-  pre-commit diff review required, incident procedure defined).
-- CLAUDE.md: add Deployment section — Docker via docker-compose, contractor portal VPS,
-  127.0.0.1:4000 behind nginx, domain hyperplm.com (Hostinger).
-- Add landing/index.html — self-contained "Coming Soon" page for hyperplm.com listing
-  platform capabilities.
-- Reviewed by: user (directed changes).
-
-## 00.001.000 — 2026-07-21
-
-- Import baseline codebase: PLM Lite V1.0 (MIT) pulled from the live deployment at
-  3dprintdudes.io/plm (VPS1 /opt/plm working tree, commit 46f5e36 + 2 untracked files).
-  FastAPI + vanilla JS: parts, BOM/relationships, documents, auth (local/Google OAuth),
-  check-in/out, release status, Excel export.
-- Excluded from import: .env (secrets), deploy.sh (server-side artifact), .git history,
-  __pycache__. Merged upstream .gitignore rules; un-ignored .env.example template.
-- Reviewed by: user (directed import of running version as starting point).
+### Multi-tenancy + PostgreSQL
+- Design: docs/phase2_design.md — org/membership model, two-layer isolation (app scoping +
+  PostgreSQL RLS backstop, which structurally closes the IDOR class), SQLite→Postgres
+  migration. Decisions: SQLAlchemy Core, Docker Postgres on the contractor VPS,
+  multi-org-per-user, per-org custom roles. Independent design review — PASSED (§12
+  follow-ups). Infra IPs scrubbed from the public repo (HEAD; no history rewrite).
+- PostgreSQL data layer: app/db.py (SQLAlchemy Core metadata) + Alembic (migrations/0001
+  initial schema) + deploy/docker-compose.yml (Postgres 16 localhost-only + app). Live on
+  VPS at rev 0001. Independent review by user — PASSED.
+- Tenancy + row-level security: migrations/0002 (hand-authored) — organizations +
+  org_members, role moved to per-membership, per-org roles, org_id on all 8 tenant tables,
+  ENABLE + FORCE ROW LEVEL SECURITY + isolation policies keyed on the app.current_org GUC
+  (bare current_setting = fail closed loud), non-superuser hyperplm_app role. Live isolation
+  suite PASSED (rev 0002). is_platform_admin flag added; bypass path NOT wired.
+- Tenant-scoped connection layer: app/tenancy.py — tenant_session (SET LOCAL, txn-scoped,
+  no pool leak) / global_session (no GUC, global tables only) / TenantDB; membership on the
+  global path, role abilities under tenant context. Split DB URLs (owner for migrations,
+  hyperplm_app for the app). Live-validated as the app role.
+- Reviews outstanding: the tenancy migration (0002), app/tenancy.py, and the URL split are
+  PENDING independent review before the query layer is built on them.
 
 ## 00.000.001 — 2026-07-21
 
 - Add .gitignore: excludes PAT/token files, keys, .env, and Python artifacts (repo is public).
-- Reviewed by: user (requested during setup).
 
 ## 00.000.000 — 2026-07-21
 
-- Initial repository setup: CLAUDE.md project rules, VERSION file, CHANGELOG.md.
-- Reviewed by: user (initial setup, no code yet).
+- Initial repository setup: CLAUDE.md project rules, VERSION file, CHANGELOG.md (no code yet).
