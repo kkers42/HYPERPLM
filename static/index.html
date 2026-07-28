@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PLM Lite — Login</title>
+  <title>HYPERPLM — Sign In</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -172,16 +172,20 @@
     }
     footer a { color: #6c63ff; text-decoration: none; }
     footer a:hover { color: #48cae4; }
+
+    .toggle { font-size: 12px; color: #888; margin-top: 12px; text-align: center; }
+    .toggle a { color: #6c63ff; text-decoration: none; font-weight: 600; }
+    .toggle a:hover { color: #48cae4; }
   </style>
 </head>
 <body>
 <div class="hero">
 
   <div class="logo">⚙️</div>
-  <h1>PLM Lite</h1>
+  <h1>HYPERPLM</h1>
   <p class="subtitle">
-    Product Lifecycle Management for your engineering team.<br>
-    Track parts, manage CAD files, and control revisions.
+    Product Lifecycle Management, built for motorsports.<br>
+    Track every part, BOM, and revision on your race car.
   </p>
 
   <!-- Loading spinner shown until auth mode is determined -->
@@ -216,6 +220,28 @@
       <div id="login-error" class="login-error"></div>
       <button type="submit" class="btn-submit" id="login-btn">Sign In</button>
     </form>
+    <p class="toggle">New team? <a href="#" onclick="showRegister(event)">Create an account</a></p>
+  </div>
+
+  <!-- Register (local mode) -->
+  <div id="register-section" style="display:none">
+    <form class="login-form" id="register-form" onsubmit="submitRegister(event)">
+      <div class="form-group">
+        <label for="reg-org">Team / Organization name</label>
+        <input type="text" id="reg-org" placeholder="e.g. Alpha Racing" required autofocus>
+      </div>
+      <div class="form-group">
+        <label for="reg-username">Username</label>
+        <input type="text" id="reg-username" autocomplete="username" placeholder="Choose a username" required>
+      </div>
+      <div class="form-group">
+        <label for="reg-password">Password</label>
+        <input type="password" id="reg-password" autocomplete="new-password" placeholder="At least 8 characters" required>
+      </div>
+      <div id="register-error" class="login-error"></div>
+      <button type="submit" class="btn-submit" id="register-btn">Create account &amp; sign in</button>
+    </form>
+    <p class="toggle">Already have an account? <a href="#" onclick="showLogin(event)">Sign in</a></p>
   </div>
 
   <!-- Windows identity -->
@@ -283,6 +309,52 @@
       document.getElementById('local-section').style.display = '';
     }
   })();
+
+  function showRegister(e) {
+    e.preventDefault();
+    document.getElementById('local-section').style.display = 'none';
+    document.getElementById('register-section').style.display = '';
+  }
+  function showLogin(e) {
+    e.preventDefault();
+    document.getElementById('register-section').style.display = 'none';
+    document.getElementById('local-section').style.display = '';
+  }
+
+  async function submitRegister(e) {
+    e.preventDefault();
+    const btn = document.getElementById('register-btn');
+    const err = document.getElementById('register-error');
+    err.classList.remove('visible');
+    btn.disabled = true;
+    btn.textContent = 'Creating…';
+    try {
+      const resp = await fetch('auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          username: document.getElementById('reg-username').value,
+          password: document.getElementById('reg-password').value,
+          org_name: document.getElementById('reg-org').value,
+        }),
+      });
+      if (resp.ok) {
+        window.location.href = 'app';
+      } else {
+        const data = await resp.json().catch(() => ({}));
+        err.textContent = data.detail || 'Registration failed';
+        err.classList.add('visible');
+        btn.disabled = false;
+        btn.textContent = 'Create account & sign in';
+      }
+    } catch (_) {
+      err.textContent = 'Network error — please try again';
+      err.classList.add('visible');
+      btn.disabled = false;
+      btn.textContent = 'Create account & sign in';
+    }
+  }
 
   async function submitWindows(e) {
     e.preventDefault();
