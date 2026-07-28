@@ -23,6 +23,11 @@ JWT_EXPIRE_HOURS: int = int(os.getenv("JWT_EXPIRE_HOURS", "8"))
 # Minimum length enforced when users set or change a password.
 PASSWORD_MIN_LENGTH: int = int(os.getenv("PASSWORD_MIN_LENGTH", "8"))
 
+# Trust the X-Forwarded-For header for the client IP. Enable ONLY when the app sits
+# behind a proxy that sets it (e.g. nginx on the VPS). Off by default so a
+# direct-exposed deployment cannot be fooled by a spoofed header (rate-limit evasion).
+TRUST_PROXY: bool = os.getenv("TRUST_PROXY", "false").lower() in ("1", "true", "yes")
+
 # Google OAuth (only needed when AUTH_MODE=google)
 GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")

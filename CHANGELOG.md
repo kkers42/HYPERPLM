@@ -81,6 +81,15 @@ does not increment until it ships. After release, fixes will be `00.001.001`, `0
   tenant-scoped connection layer (app/tenancy.py) were independently reviewed by the user
   — all APPROVED (2026-07-27). The router switchover (deps/auth/accounts/orgs + ports) is
   PENDING review.
+- Security follow-ups folded in (from docs/phase1_review_followups.md): rate limiter now uses
+  FAILURE-ONLY counting for login/windows (a guard dependency checks without recording; the
+  handler records only on rejected creds) so successful logins can't cause a lockout;
+  registration counts all attempts (separate 10/hour limiter). X-Forwarded-For honored only
+  when TRUST_PROXY is set (default off) to prevent spoofed rate-limit evasion. Expired
+  limiter keys evicted lazily + key-count sweep (no unbounded growth). Removed the redundant
+  path-guard check in files.get_file_path. (Lifespan migration and no-default-admin were
+  already handled in step 5; bootstrap-password validation is moot — registration replaced
+  admin-seeding.)
 
 ## 00.000.001 — 2026-07-21
 

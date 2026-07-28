@@ -5,7 +5,7 @@ Local mode supports self-service registration (which creates the user's first or
 Every issued token carries active_org_id as a hint; the server re-resolves membership
 and role on every request (see deps.get_principal).
 """
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 
 from .. import accounts, config, repo
@@ -18,7 +18,7 @@ from ..auth import (
 )
 from ..deps import RequestContext, get_ctx, get_principal
 from ..models import LoginRequest, MessageResponse, RegisterRequest
-from ..security import rate_limit_login
+from ..security import note_login_failure, rate_limit_login, rate_limit_register
 from ..tenancy import global_session
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -31,7 +31,7 @@ def _issue(response: Response, user: dict, org_id) -> None:
 
 # ── Local ─────────────────────────────────────────────────────────────────────
 
-@router.post("/register", dependencies=[Depends(rate_limit_login)])
+@router.post("/register", dependencies=[Depends(rate_limit_register)])
 async def register(body: RegisterRequest, response: Response):
     if config.AUTH_MODE != "local":
         raise HTTPException(400, "Registration is only available in local auth mode")
@@ -48,11 +48,12 @@ async def register(body: RegisterRequest, response: Response):
 
 
 @router.post("/login", dependencies=[Depends(rate_limit_login)])
-async def local_login(body: LoginRequest, response: Response):
+async def local_login(body: LoginRequest, request: Request, response: Response):
     if config.AUTH_MODE != "local":
         raise HTTPException(400, "Local login not enabled")
     user = accounts.verify_local_login(body.username, body.password)
     if not user:
+        note_login_failure(request)
         raise HTTPException(401, "Invalid username or password")
     org_id = accounts.default_org_for(user["id"])
     _issue(response, user, org_id)
@@ -66,7 +67,7 @@ async def local_login(body: LoginRequest, response: Response):
 # ── Windows identity ──────────────────────────────────────────────────────────
 
 @router.post("/windows", dependencies=[Depends(rate_limit_login)])
-async def windows_login(body: dict, response: Response):
+async def windows_login(body: dict, request: Request, response: Response):
     if config.AUTH_MODE != "windows":
         raise HTTPException(400, "Windows auth not enabled")
     win_user = (body.get("username") or "").strip()
@@ -75,6 +76,7 @@ async def windows_login(body: dict, response: Response):
     bare = win_user.split("\\")[-1].split("/")[-1].lower()
     user = accounts.get_or_provision_external_user("", bare)
     if not user.get("is_active", 1):
+        note_login_failure(request)
         raise HTTPException(403, "Your account has been disabled.")
     org_id = accounts.default_org_for(user["id"])
     _issue(response, user, org_id)
