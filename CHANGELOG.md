@@ -90,6 +90,17 @@ does not increment until it ships. After release, fixes will be `00.001.001`, `0
   path-guard check in files.get_file_path. (Lifespan migration and no-default-admin were
   already handled in step 5; bootstrap-password validation is moot — registration replaced
   admin-seeding.)
+- Tenant-isolation acceptance suite (tests/, pytest) — Phase 2 §8 gate. 12 tests, all green
+  against live Postgres: parts/BOM/relationships/documents/revisions/audit isolation via API
+  AND direct-id (IDOR) access; part-number unique per org; org switch changes the dataset and
+  non-members can't switch; Viewer role can't write; unauthenticated → 401; DB-layer RLS fails
+  closed (no-GUC query errors, global_session can't read tenant tables); and a single-org
+  regression covering the full parts→BOM→checkout→release→revise→export flow. conftest resets
+  the in-process rate limiter + truncates between tests. requirements-dev.txt + pytest.ini added.
+
+**Phase 2 (multi-tenancy + PostgreSQL) is functionally complete** — the app runs isolated on
+Postgres with a passing acceptance suite. Remaining before first release: deploy the app
+container on port 4000 behind nginx (hyperplm.com), and a final independent review of steps 4-7.
 
 ## 00.000.001 — 2026-07-21
 
