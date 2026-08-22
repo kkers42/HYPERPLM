@@ -189,3 +189,16 @@ container on port 4000 behind nginx (hyperplm.com), and a final independent revi
   team-only. The fan wall holds on the anonymous path.
 - **Not yet reviewed** (rule 5).
 
+### Racing domain (Phase 3, step 4) — the designed UI on the real database
+
+- Replaced the utilitarian racing/fan pages with the approved Paddock design
+  (`static/racing.html`, `static/paddock.html`) — the ember/graphite motorsports system:
+  timing-tower colours, mono tabular data, mini circuit maps, light/dark, the Team ⇄ Fan
+  visibility toggle, and the full public set (Welcome / Company / Team / Profile / Fan).
+- The designs are hydrated, not rewritten: an appended script swaps the mock content for
+  live rows from `/api/racing/*` (authenticated) and `/api/public/*` (anonymous), keeping
+  the markup and CSS untouched. Circuit cards reuse the design's own mini-map paths, matched
+  to the seeded track list by name.
+- Mock CTAs now point at the real app (`/login`, `/racing`).
+- **Not yet reviewed** (rule 5).
+
