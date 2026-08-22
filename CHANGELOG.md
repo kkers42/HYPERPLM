@@ -136,6 +136,29 @@ container on port 4000 behind nginx (hyperplm.com), and a final independent revi
 - **Not yet reviewed** (rule 5): author session does not approve its own work. Pending an
   independent check before this is released as the new version.
 
+### Racing domain (Phase 3, step 2) — API + workspace UI
+
+- `app/racing.py`: racing query module (rule 3 — one module, one responsibility). Takes the
+  request's TenantDB, so RLS scopes every statement; org_id is never passed around. The fan
+  wall lives here in one place: `public_only=True` restricts a query to published rows.
+- `app/routers/racing_router.py`: `/api/racing/{summary,tracks,teams,teams/{id}/laps,
+  teams/{id}/sessions,setups,setups/{key},checklists,parts}` — same
+  `Depends(require_ability(...))` pattern as the parts/documents routers.
+  A team-only sheet requested with `public_only=true` returns **404, not 403**, so a fan
+  learns nothing about the existence of a private sheet.
+- `static/racing.html` + `GET /racing`: the Paddock workspace — overview KPIs, the 23-circuit
+  track library, session log and lap times (timing-tower colours: purple = fastest, green =
+  PB), setup sheets with a click-through detail pane, checklists, and life-limited parts with
+  service bars. Reads live from the API; no hardcoded data.
+- `main.py` stays thin (rule 3): one router include and one page route.
+- Verified end-to-end on the Atlas testing copy (http://atlas.hyperplm): login → 23 circuits
+  served from the seeded reference data, 3 teams, 4 laps with 1:41.208 flagged fastest,
+  the 14-value WG-2025-Q sheet readable by the engineer, and the SAME sheet returning 404
+  with `public_only=true` — the fan wall holding through the HTTP layer.
+- Local testing copy documented in `R:\port_mapping.txt` (Atlas :4100, nginx vhost
+  `atlas-hyperplm`, dnsmasq `atlas.hyperplm`). Production VPS remains untouched at rev 0002.
+- **Not yet reviewed** (rule 5).
+
 ## 00.000.001 — 2026-07-21
 
 - Add .gitignore: excludes PAT/token files, keys, .env, and Python artifacts (repo is public).

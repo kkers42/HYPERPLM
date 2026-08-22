@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HYPERPLM — Paddock</title>
+<style>
+:root{
+  --bg:#0B1116; --surface:#131B21; --surface-2:#0F161B; --border:#25313A; --border-2:#33424C;
+  --text:#E7EEF2; --dim:#93A4B0; --faint:#5E6F7B;
+  --accent:#FF5E2B; --accent-ink:#170A04; --accent-soft:#3A1D10;
+  --purple:#B482F2; --green:#38CB7B; --yellow:#E6B84E; --red:#F26065;
+  --purple-bg:#241634; --green-bg:#0F2A1D; --yellow-bg:#2C2411; --red-bg:#30161A;
+  --f-disp:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+  --f-mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:14px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:var(--f-disp);font-weight:800;letter-spacing:-.02em;margin:0}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+a{color:inherit;text-decoration:none}
+.eyebrow{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+
+/* top bar */
+.top{display:flex;align-items:center;gap:16px;height:58px;padding:0 20px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--f-disp);font-weight:800}
+.flag{width:26px;height:26px;border-radius:7px;background:conic-gradient(from 45deg,#111 0 25%,#fff 0 50%,#111 0 75%,#fff 0);box-shadow:inset 0 0 0 1.5px var(--border-2)}
+.brand small{display:block;font-family:var(--f-mono);font-size:9px;letter-spacing:.14em;color:var(--faint);text-transform:uppercase;margin-top:-2px}
+.sp{flex:1}
+.btn{font:inherit;font-size:13px;font-weight:650;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text);padding:8px 14px;border-radius:9px;cursor:pointer}
+.btn:hover{border-color:var(--faint)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.envtag{font-family:var(--f-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--yellow);background:var(--yellow-bg);padding:3px 9px;border-radius:20px;border:1px solid #4a3d1a}
+
+/* tabs */
+.tabs{display:flex;gap:4px;padding:0 20px;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto}
+.tab{padding:11px 14px;font-weight:600;font-size:13.5px;color:var(--dim);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
+.tab.on{color:var(--accent);border-color:var(--accent)}
+.tab:hover{color:var(--text)}
+
+.wrap{max-width:1200px;margin:0 auto;padding:22px 20px 70px}
+.view{display:none}.view.on{display:block}
+
+.grid{display:grid;gap:14px}
+.k4{grid-template-columns:repeat(4,1fr)}
+.k3{grid-template-columns:repeat(3,1fr)}
+.k2{grid-template-columns:1.6fr 1fr}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px}
+.pad{padding:16px 18px}
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 16px;border-bottom:1px solid var(--border)}
+.card-h h3{font-size:13.5px}
+
+.kpi .big{font-family:var(--f-mono);font-weight:700;font-size:26px;letter-spacing:-.02em;line-height:1}
+.kpi .sub{font-size:11.5px;color:var(--dim);margin-top:6px}
+
+.pill{font-family:var(--f-mono);font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;text-transform:uppercase;display:inline-block}
+.pill.pub{color:var(--green);background:var(--green-bg)}
+.pill.team{color:var(--purple);background:var(--purple-bg)}
+.pill.ok{color:var(--green);background:var(--green-bg)}
+.pill.warn{color:var(--yellow);background:var(--yellow-bg)}
+.pill.crit{color:var(--red);background:var(--red-bg)}
+.pill.neutral{color:var(--dim);background:var(--surface-2);border:1px solid var(--border)}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-family:var(--f-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:600;padding:9px 14px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:10px 14px;border-bottom:1px solid var(--border)}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--surface-2)}
+td.num,th.num{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.tablewrap{overflow-x:auto}
+.fastest{color:var(--purple);font-weight:700}
+.pb{color:var(--green);font-weight:600}
+
+/* tracks */
+.tracks{grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
+.tcard{padding:14px 16px;cursor:default}
+.tcard h4{font-size:14px;margin-bottom:2px}
+.tcard .loc{font-size:11.5px;color:var(--dim)}
+.tcard .meta{display:flex;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:11.5px;color:var(--dim)}
+
+/* setup */
+.spec{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--border);font-size:12.5px}
+.spec:last-child{border-bottom:0}
+.spec .k{color:var(--dim)}
+.spec .v{font-family:var(--f-mono);font-weight:600}
+.spec .v .u{color:var(--faint);font-weight:400;font-size:11px;margin-left:3px}
+
+.lifebar{width:80px;height:6px;border-radius:4px;background:var(--surface-2);border:1px solid var(--border);overflow:hidden;display:inline-block;vertical-align:middle}
+.lifebar i{display:block;height:100%}
+
+.check{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px}
+.check:last-child{border-bottom:0}
+.box{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--border-2);flex:none;display:grid;place-items:center;font-size:11px;color:transparent}
+.check.done .box{background:var(--green);border-color:var(--green);color:#04120a}
+.check.done .lbl{color:var(--faint);text-decoration:line-through}
+.who{margin-left:auto;font-size:11px;color:var(--faint);font-family:var(--f-mono)}
+
+.msg{padding:14px 16px;border-radius:12px;border:1px solid var(--border);background:var(--surface-2);color:var(--dim);font-size:13px}
+.msg.err{border-color:#5b2b2f;background:var(--red-bg);color:#ffc9cb}
+.hint{font-size:11.5px;color:var(--faint)}
+.wall{display:flex;gap:12px;align-items:flex-start;background:var(--purple-bg);border:1px solid #3d2a55;border-radius:12px;padding:12px 15px;font-size:12.5px;color:var(--dim);margin-bottom:14px}
+.wall b{color:var(--purple)}
+@media(max-width:900px){.k4{grid-template-columns:repeat(2,1fr)}.k3,.k2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="brand"><span class="flag"></span><span>Paddock<small>by HYPERPLM</small></span></div>
+  <span class="envtag" id="envtag">testing · atlas</span>
+  <div class="sp"></div>
+  <span class="hint" id="whoami"></span>
+  <a class="btn" href="/app">← PLM</a>
+</div>
+
+<div class="tabs">
+  <div class="tab on" data-v="overview">Overview</div>
+  <div class="tab" data-v="tracks">Track Data</div>
+  <div class="tab" data-v="times">Lap Times</div>
+  <div class="tab" data-v="setups">Setup Sheets</div>
+  <div class="tab" data-v="checklists">Checklists</div>
+  <div class="tab" data-v="parts">Parts &amp; CAD</div>
+</div>
+
+<div class="wrap">
+  <div id="err"></div>
+
+  <!-- OVERVIEW -->
+  <section class="view on" id="v-overview">
+    <div style="margin-bottom:16px">
+      <div class="eyebrow">Racing workspace</div>
+      <h1 style="font-size:25px">Team Overview</h1>
+    </div>
+    <div class="grid k4" style="margin-bottom:14px" id="kpis"></div>
+    <div class="grid k2">
+      <div class="card">
+        <div class="card-h"><h3>Teams</h3><span class="eyebrow" id="teamcount"></span></div>
+        <div class="tablewrap"><table id="teamtbl">
+          <thead><tr><th>Car</th><th>Team</th><th>Series</th><th>Class</th><th>Drivers</th></tr></thead>
+          <tbody></tbody></table></div>
+      </div>
+      <div class="card pad">
+        <div class="eyebrow" style="margin-bottom:10px">Built on the PLM core</div>
+        <div class="spec"><span class="k">Company</span><span class="v">organizations row</span></div>
+        <div class="spec"><span class="k">Members &amp; roles</span><span class="v">org_members + roles</span></div>
+        <div class="spec"><span class="k">Parts &amp; CAD</span><span class="v">parts + revisions</span></div>
+        <div class="spec"><span class="k">Isolation</span><span class="v">RLS per org</span></div>
+        <div class="spec"><span class="k">Fan wall</span><span class="v">visibility column</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRACKS -->
+  <section class="view" id="v-tracks">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap">
+      <div><div class="eyebrow">Circuit library</div><h1 style="font-size:25px">Track Data</h1>
+        <p class="hint" style="margin:4px 0 0">Seeded reference data — every IMSA &amp; IndyCar circuit, shared by all teams.</p></div>
+      <div>
+        <button class="btn" data-series="">All</button>
+        <button class="btn" data-series="IMSA">IMSA</button>
+        <button class="btn" data-series="IndyCar">IndyCar</button>
+      </div>
+    </div>
+    <div class="grid tracks" id="trackgrid"></div>
+  </section>
+
+  <!-- LAP TIMES -->
+  <section class="view" id="v-times">
+    <div style="margin-bottom:16px"><div class="eyebrow">Times v. session</div><h1 style="font-size:25px">Lap Times</h1></div>
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-h"><h3>Session log</h3><span class="eyebrow">all sessions</span></div>
+      <div class="tablewrap"><table id="sesstbl">
+        <thead><tr><th>Session</th><th>Event</th><th>Track</th><th class="num">Laps</th><th class="num">Best</th><th>Visibility</th></tr></thead>
+        <tbody></tbody></table></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h3>Fastest laps</h3><span class="eyebrow">purple = fastest · green = PB</span></div>
+      <div class="tablewrap"><table id="laptbl">
+        <thead><tr><th>Session</th><th>Driver</th><th>Track</th><th class="num">Lap</th><th class="num">Time</th><th>Tire</th><th>Visibility</th></tr></thead>
+        <tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- SETUPS -->
+  <section class="view" id="v-setups">
+    <div style="margin-bottom:14px"><div class="eyebrow">Engineering</div><h1 style="font-size:25px">Setup Sheets</h1></div>
+    <div class="wall">🔒 <div><b>Setup sheets are team-only by default.</b> The <span class="mono">visibility</span> column decides what ever leaves the garage — fans get lap times, never corner weights. Row-level security keeps tenants apart; this column keeps the fan wall.</div></div>
+    <div class="grid k2">
+      <div class="card">
+        <div class="card-h"><h3>Sheets on file</h3></div>
+        <div class="tablewrap"><table id="setuptbl">
+          <thead><tr><th>Key</th><th>Track</th><th>Baseline</th><th>Rev</th><th>Visibility</th></tr></thead>
+          <tbody></tbody></table></div>
+      </div>
+      <div class="card" id="setupdetail"><div class="card-h"><h3>Sheet detail</h3></div><div class="pad hint">Select a sheet to view its values.</div></div>
+    </div>
+  </section>
+
+  <!-- CHECKLISTS -->
+  <section class="view" id="v-checklists">
+    <div style="margin-bottom:16px"><div class="eyebrow">Garage &amp; pit procedures</div><h1 style="font-size:25px">Checklists</h1></div>
+    <div class="grid k2" id="checkgrid"></div>
+  </section>
+
+  <!-- PARTS -->
+  <section class="view" id="v-parts">
+    <div style="margin-bottom:16px"><div class="eyebrow">PLM parts + racing service life</div><h1 style="font-size:25px">Parts &amp; CAD</h1>
+      <p class="hint" style="margin:4px 0 0">These are real PLM parts — <span class="mono">part_usages</span> adds only what racing needs: which car runs it, and life against its limit.</p></div>
+    <div class="card">
+      <div class="card-h"><h3>Life-limited components</h3><span class="pill team">Team</span></div>
+      <div class="tablewrap"><table id="parttbl">
+        <thead><tr><th>Part No.</th><th>Description</th><th>Rev</th><th class="num">Used</th><th class="num">Limit</th><th>Life</th><th>Status</th></tr></thead>
+        <tbody></tbody></table></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const fmt = ms => ms==null ? "—" : `${Math.floor(ms/60000)}:${((ms%60000)/1000).toFixed(3).padStart(6,"0")}`;
+const esc = s => String(s??"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+async function api(path){
+  const r = await fetch(path, {credentials:"same-origin"});
+  if(r.status===401){ location.href="/login"; throw new Error("auth"); }
+  if(!r.ok) throw new Error(`${path} → HTTP ${r.status}`);
+  return r.json();
+}
+function showErr(e){
+  $("#err").innerHTML = `<div class="msg err">Could not load: ${esc(e.message)}</div>`;
+}
+
+let TEAMS = [], TEAM_ID = null;
+
+async function boot(){
+  try{
+    const [sum, teams] = await Promise.all([api("/api/racing/summary"), api("/api/racing/teams")]);
+    TEAMS = teams; TEAM_ID = teams[0]?.id ?? null;
+
+    $("#kpis").innerHTML = [
+      ["Teams", sum.teams, "cars / programs"],
+      ["Best lap", fmt(sum.best_lap_ms), "across all sessions"],
+      ["Setups on file", sum.setups, `${sum.laps} laps logged`],
+      ["Parts due service", sum.parts_needing_service, "life-limited"],
+    ].map(([k,v,s],i)=>`<div class="card pad kpi"><div class="eyebrow">${k}</div>
+      <div class="big" ${i===1?'style="color:var(--purple)"':(i===3&&v>0?'style="color:var(--yellow)"':"")}>${esc(v)}</div>
+      <div class="sub">${esc(s)}</div></div>`).join("");
+
+    $("#teamcount").textContent = `${teams.length} on file`;
+    $("#teamtbl tbody").innerHTML = teams.length ? teams.map(t=>`<tr>
+      <td class="mono" style="font-weight:700">#${esc(t.car_number)}</td>
+      <td>${esc(t.name)}</td><td>${esc(t.series)}</td><td>${esc(t.class)}</td>
+      <td class="hint">${t.drivers.map(d=>esc(d.name)).join(", ")||"—"}</td></tr>`).join("")
+      : `<tr><td colspan="5" class="hint">No teams yet.</td></tr>`;
+
+    loadTracks("");
+    if(TEAM_ID) loadTeamData(TEAM_ID);
+    loadSetups(); loadChecklists(); loadParts();
+  }catch(e){ if(e.message!=="auth") showErr(e); }
+}
+
+async function loadTracks(series){
+  try{
+    const t = await api("/api/racing/tracks"+(series?`?series=${encodeURIComponent(series)}`:""));
+    $("#trackgrid").innerHTML = t.map(x=>`<div class="card tcard">
+      <h4>${esc(x.name)}</h4><div class="loc">${esc(x.location)}</div>
+      <div class="meta"><span>${x.length_km?x.length_km.toFixed(3)+" km":"—"} · ${x.turns??"—"} turns</span>
+      <span class="pill neutral">${esc(x.layout)}</span></div>
+      <div class="hint" style="margin-top:6px">${esc(x.series_tag)}</div></div>`).join("")
+      || `<div class="msg">No circuits.</div>`;
+  }catch(e){ showErr(e); }
+}
+
+async function loadTeamData(id){
+  try{
+    const [sessions, laps] = await Promise.all([
+      api(`/api/racing/teams/${id}/sessions`), api(`/api/racing/teams/${id}/laps`)]);
+    $("#sesstbl tbody").innerHTML = sessions.length ? sessions.map(s=>`<tr>
+      <td style="text-transform:uppercase" class="mono">${esc(s.session_type)}</td>
+      <td>${esc(s.event)}</td><td>${esc(s.track)}</td>
+      <td class="num">${s.lap_count}</td><td class="num">${fmt(s.best_ms)}</td>
+      <td><span class="pill ${s.visibility==='public'?'pub':'team'}">${esc(s.visibility)}</span></td></tr>`).join("")
+      : `<tr><td colspan="6" class="hint">No sessions logged.</td></tr>`;
+    $("#laptbl tbody").innerHTML = laps.length ? laps.map(l=>`<tr>
+      <td class="mono" style="text-transform:uppercase">${esc(l.session_type)}</td>
+      <td>${esc(l.driver||"—")}</td><td>${esc(l.track)}</td>
+      <td class="num">${l.lap_no}</td>
+      <td class="num ${l.is_fastest?'fastest':(l.is_pb?'pb':'')}">${fmt(l.lap_time_ms)}</td>
+      <td>${esc(l.tire_compound||"—")}</td>
+      <td><span class="pill ${l.visibility==='public'?'pub':'team'}">${esc(l.visibility)}</span></td></tr>`).join("")
+      : `<tr><td colspan="7" class="hint">No laps logged.</td></tr>`;
+  }catch(e){ showErr(e); }
+}
+
+async function loadSetups(){
+  try{
+    const s = await api("/api/racing/setups");
+    $("#setuptbl tbody").innerHTML = s.length ? s.map(x=>`<tr style="cursor:pointer" onclick="openSetup('${esc(x.setup_key)}')">
+      <td class="mono">${esc(x.setup_key)}</td><td>${esc(x.track)}</td>
+      <td class="mono">${esc(x.baseline||"—")}</td><td class="mono">${esc(x.revision_label)}</td>
+      <td><span class="pill ${x.visibility==='public'?'pub':'team'}">${esc(x.visibility)}</span></td></tr>`).join("")
+      : `<tr><td colspan="5" class="hint">No setup sheets yet.</td></tr>`;
+  }catch(e){ showErr(e); }
+}
+
+async function openSetup(key){
+  try{
+    const d = await api(`/api/racing/setups/${encodeURIComponent(key)}`);
+    const groups = {};
+    d.values.forEach(v => (groups[v.group_name||"Other"] ||= []).push(v));
+    $("#setupdetail").innerHTML = `<div class="card-h"><h3>${esc(d.setup_key)} · ${esc(d.track)}</h3>
+      <span class="pill ${d.visibility==='public'?'pub':'team'}">${esc(d.visibility)}</span></div>
+      <div class="pad">${Object.entries(groups).map(([g,vs])=>`
+        <div class="eyebrow" style="margin:10px 0 6px">${esc(g)}</div>
+        ${vs.map(v=>`<div class="spec"><span class="k">${esc(v.attr_key)}</span>
+          <span class="v">${esc(v.attr_value)}<span class="u">${esc(v.unit||"")}</span></span></div>`).join("")}`).join("")}
+        ${d.notes?`<p class="hint" style="margin-top:12px;line-height:1.5">${esc(d.notes)}</p>`:""}</div>`;
+  }catch(e){ showErr(e); }
+}
+
+async function loadChecklists(){
+  try{
+    const c = await api("/api/racing/checklists");
+    $("#checkgrid").innerHTML = c.length ? c.map(x=>`<div class="card">
+      <div class="card-h"><h3>${esc(x.name)}</h3>
+        <span class="pill ${x.done===x.total?'ok':'warn'}">${x.done} / ${x.total}</span></div>
+      <div class="pad">${x.items.map(i=>`<div class="check ${i.is_done?'done':''}">
+        <div class="box">✓</div><div class="lbl">${esc(i.label)}</div>
+        <div class="who">${esc(i.assigned_role||"—")}</div></div>`).join("")||'<div class="hint">No items.</div>'}</div></div>`).join("")
+      : `<div class="msg">No checklists yet.</div>`;
+  }catch(e){ showErr(e); }
+}
+
+async function loadParts(){
+  try{
+    const p = await api("/api/racing/parts");
+    const colour = s => s==="over"?"var(--red)":s==="service_soon"?"var(--yellow)":"var(--green)";
+    $("#parttbl tbody").innerHTML = p.length ? p.map(x=>`<tr>
+      <td class="mono">${esc(x.part_number)}</td><td>${esc(x.part_name)}</td>
+      <td class="mono">${esc(x.part_revision)}</td>
+      <td class="num">${x.hours_used} h</td><td class="num">${x.hours_limit??"—"}</td>
+      <td><span class="lifebar"><i style="width:${Math.min(x.life_pct??0,100)}%;background:${colour(x.status)}"></i></span>
+        <span class="mono hint"> ${x.life_pct!=null?x.life_pct+"%":""}</span></td>
+      <td><span class="pill ${x.status==='over'?'crit':x.status==='service_soon'?'warn':'ok'}">${esc(x.status.replace("_"," "))}</span></td></tr>`).join("")
+      : `<tr><td colspan="7" class="hint">No life-limited parts tracked.</td></tr>`;
+  }catch(e){ showErr(e); }
+}
+
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));
+  document.querySelectorAll(".view").forEach(x=>x.classList.remove("on"));
+  t.classList.add("on"); $("#v-"+t.dataset.v).classList.add("on");
+});
+document.querySelectorAll("[data-series]").forEach(b => b.onclick = () => loadTracks(b.dataset.series));
+boot();
+</script>
+</body>
+</html>
