@@ -51,6 +51,12 @@ def list_teams(db: TenantDB) -> list[dict]:
     return out
 
 
+def team_drivers(db: TenantDB, team_id: int) -> list[dict]:
+    return _rows(db.execute(
+        select(drivers.c.name, drivers.c.country).where(drivers.c.team_id == team_id)
+    ))
+
+
 def get_team(db: TenantDB, team_id: int) -> Optional[dict]:
     row = db.execute(select(teams).where(teams.c.id == team_id)).first()
     return dict(row._mapping) if row else None

@@ -166,3 +166,26 @@ container on port 4000 behind nginx (hyperplm.com), and a final independent revi
 ## 00.000.000 — 2026-07-21
 
 - Initial repository setup: CLAUDE.md project rules, VERSION file, CHANGELOG.md (no code yet).
+
+### Racing domain (Phase 3, step 3) — fan layer + navigation
+
+- Migration `0004_public_team_directory.py`: `team_directory` (global, no RLS) — the minimal
+  public identity of a team plus its org_id. Fans are anonymous and have no active org, so
+  they cannot read `teams` (RLS fails closed); this is the lookup that makes a public page
+  possible. Flow: directory → org_id → `tenant_session(org_id)` → rows WHERE
+  visibility='public'. RLS still isolates tenants; the visibility column still walls the fans.
+  Teams appear publicly only when `is_public` is set.
+- `app/routers/public_router.py`: the app's only unauthenticated data path —
+  `/api/public/{teams,tracks,teams/{slug},teams/{slug}/setups,leaderboard}`. Nothing accepts
+  a caller-supplied org_id; team-only setups can never appear.
+- `static/paddock.html` + `GET /paddock`: the public Fan Zone — browse published teams, open
+  a team for its published lap times and session log, the 23-circuit library, the fan
+  leaderboard, and an explicit "what fans get / what never leaves the garage" breakdown.
+- Navigation fix: the racing workspace and Fan Zone were unreachable from the PLM UI (a real
+  usability bug — the work existed but was invisible). Added menu + sidebar entries in
+  `static/app.html` and retitled the shell from "PLM Lite v1.0" to "HYPERPLM Paddock".
+- Verified unauthenticated on the Atlas testing copy: 3 published teams, #74 returning both
+  drivers, 4 public laps, best 1:41.208 — and 0 public setup sheets, because WG-2025-Q is
+  team-only. The fan wall holds on the anonymous path.
+- **Not yet reviewed** (rule 5).
+

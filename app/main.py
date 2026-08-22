@@ -25,6 +25,7 @@ from .routers import (
     relationships_router,
     users_router,
     racing_router,
+    public_router,
 )
 
 _STATIC = Path(__file__).parent.parent / "static"
@@ -59,6 +60,7 @@ app.include_router(documents_router.router)
 app.include_router(users_router.router)
 app.include_router(admin_router.router)
 app.include_router(racing_router.router)
+app.include_router(public_router.router)
 
 
 # ── Pages ────────────────────────────────────────────────────────────────────
@@ -76,6 +78,12 @@ async def login_page():
 @app.get("/app")
 async def app_page():
     return FileResponse(str(_STATIC / "app.html"))
+
+
+@app.get("/paddock")
+async def paddock_page():
+    """The Paddock — public fan-facing page (no login required)."""
+    return FileResponse(str(_STATIC / "paddock.html"))
 
 
 @app.get("/racing")

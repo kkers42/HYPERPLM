@@ -518,6 +518,28 @@ garage_passes = Table(
 )
 
 
+# ── Public team directory — GLOBAL (no RLS): the anonymous lookup ────────────
+# Fans have no active org, so they cannot read `teams` (RLS fails closed). This
+# minimal directory answers "which org owns this team?" so a tenant session can
+# then be opened and filtered to visibility='public'. Carries no engineering data.
+team_directory = Table(
+    "team_directory", metadata,
+    _pk(),
+    Column("team_id", BigInteger, ForeignKey("teams.id", ondelete="CASCADE"),
+           nullable=False, unique=True),
+    Column("org_id", BigInteger, ForeignKey("organizations.id", ondelete="CASCADE"),
+           nullable=False),
+    Column("slug", Text, nullable=False, unique=True),
+    Column("name", Text, nullable=False),
+    Column("car_number", Text, nullable=False, server_default=text("''")),
+    Column("series", Text, nullable=False, server_default=text("''")),
+    Column("class", Text, nullable=False, server_default=text("''")),
+    Column("is_public", Integer, nullable=False, server_default=text("0")),
+    Column("updated_at", TIMESTAMP(timezone=True), server_default=func.now()),
+    Index("ix_team_directory_public", "is_public"),
+)
+
+
 # Tables protected by row-level security (org_id + policy). Kept here as the
 # authoritative list the migrations enable RLS on and the query layer scopes.
 TENANT_TABLES: tuple[str, ...] = (
