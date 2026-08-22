@@ -35,3 +35,6 @@ Thumbs.db
 
 # Server-side deploy script (created on server, not tracked)
 deploy.sh
+
+# Local testing venv (Atlas test copy)
+.venv-test/

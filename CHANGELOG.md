@@ -102,6 +102,40 @@ does not increment until it ships. After release, fixes will be `00.001.001`, `0
 Postgres with a passing acceptance suite. Remaining before first release: deploy the app
 container on port 4000 behind nginx (hyperplm.com), and a final independent review of steps 4-7.
 
+### Racing domain (Phase 3, step 1) — schema
+
+- Migration `0003_racing_domain.py`: the motorsports domain built **on** the PLM foundation
+  rather than beside it. A company IS an `organizations` row; team membership and roles ARE
+  `org_members` + `roles`; a part IS a `parts` row. No parallel identity, permission, or
+  parts system was introduced.
+- Tenant tables (org_id + RLS ENABLE/FORCE + `<table>_tenant_isolation` policy, identical
+  contract to 0002): `teams`, `cars`, `drivers`, `events`, `run_sessions`, `laps`, `setups`,
+  `setup_values`, `checklists`, `checklist_items`, `part_usages`.
+- Global tables (no RLS — resolved with no active org, by anonymous or cross-org callers,
+  same rationale as `users`/`org_members`): `tracks` and `badges` (reference data, seeded),
+  plus the fan layer `fan_profiles`, `follows`, `predictions`, `point_ledger`, `user_badges`,
+  `garage_passes` — a fan belongs to a user across orgs, not to one tenant.
+- `part_usages` adds only the racing context a PLM part lacks: which car runs it and its
+  service life (hours/cycles vs limit → ok | service_soon | over), preserving the
+  CAD-revision → part → setup → lap-time thread inside one database.
+- Public vs private is a **column, not a second store**: `visibility` ('public' | 'team') on
+  `run_sessions`, `laps` and `setups`. Setups default to `'team'` (crown-jewel IP);
+  sessions/laps default to `'public'`. Serving a public team page still scopes to exactly one
+  tenant — the app resolves team → org_id, sets the GUC to that org, and additionally filters
+  `visibility='public'` for anonymous viewers. RLS keeps cross-tenant isolation; the
+  visibility column keeps the fan wall. **Flagged for review:** the fan wall is app+column
+  level by design; RLS was never the mechanism for it.
+- Seeded reference data: 23 IMSA/IndyCar circuits and 6 fan badges.
+- `app/db.py` (SQLAlchemy Core source of truth) extended with the same tables and
+  `TENANT_TABLES` widened to include the 11 racing tenant tables.
+- Verified on a disposable Postgres 16 copy on Atlas (never the live DB): `alembic upgrade
+  head` clean from scratch; 31 tables, 19 RLS policies, 11 racing tables FORCE RLS; isolation
+  proven as the non-superuser app role — no-GUC query ERRORS (fails closed), each org sees
+  only its own rows, cross-tenant INSERT rejected by WITH CHECK; `downgrade 0003 → 0002`
+  removes the domain cleanly and re-upgrade round-trips.
+- **Not yet reviewed** (rule 5): author session does not approve its own work. Pending an
+  independent check before this is released as the new version.
+
 ## 00.000.001 — 2026-07-21
 
 - Add .gitignore: excludes PAT/token files, keys, .env, and Python artifacts (repo is public).

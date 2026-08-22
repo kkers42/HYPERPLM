@@ -22,7 +22,9 @@ from functools import lru_cache
 
 from sqlalchemy import (
     BigInteger,
+    CheckConstraint,
     Column,
+    Date,
     Float,
     ForeignKey,
     Identity,
@@ -236,6 +238,286 @@ audit_log = Table(
 )
 
 
+# ══ Racing domain (Phase 3) ═══════════════════════════════════════════════════
+# Built on the PLM foundation, not beside it: a company IS an organizations row,
+# team membership/roles ARE org_members/roles, and a part IS a parts row —
+# part_usages only adds the racing context (which car, and service life).
+
+# ── Tracks — global circuit reference data, shared by every tenant ────────────
+# Read on public pages with no org context, so global (no RLS), like users.
+tracks = Table(
+    "tracks", metadata,
+    _pk(),
+    Column("track_id", Text, nullable=False, unique=True),
+    Column("name", Text, nullable=False),
+    Column("location", Text, nullable=False, server_default=text("''")),
+    Column("country", Text, nullable=False, server_default=text("'USA'")),
+    Column("length_km", Float),
+    Column("turns", Integer),
+    Column("layout", Text, nullable=False, server_default=text("'road'")),
+    Column("series_tag", Text, nullable=False, server_default=text("''")),
+    _created(),
+    CheckConstraint("layout IN ('road','street','oval')", name="ck_tracks_layout"),
+)
+
+# ── Teams — one car/program entry inside a company (tenant-scoped) ────────────
+teams = Table(
+    "teams", metadata,
+    _pk(),
+    _org_id(),
+    Column("team_key", Text, nullable=False),
+    Column("name", Text, nullable=False),
+    Column("series", Text, nullable=False, server_default=text("''")),
+    Column("class", Text, nullable=False, server_default=text("''")),
+    Column("car_number", Text, nullable=False, server_default=text("''")),
+    _created(),
+    UniqueConstraint("org_id", "team_key", name="uq_teams_org_team_key"),
+    Index("ix_teams_org_car_number", "org_id", "car_number"),
+)
+
+cars = Table(
+    "cars", metadata,
+    _pk(),
+    _org_id(),
+    Column("team_id", BigInteger, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False),
+    Column("chassis", Text, nullable=False),
+    Column("model", Text, nullable=False, server_default=text("''")),
+    Column("homologation", Text, nullable=False, server_default=text("''")),
+    _created(),
+    Index("ix_cars_team_id", "team_id"),
+)
+
+# A driver may have no login of their own; user_id is optional.
+drivers = Table(
+    "drivers", metadata,
+    _pk(),
+    _org_id(),
+    Column("team_id", BigInteger, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False),
+    Column("user_id", BigInteger, ForeignKey("users.id", ondelete="SET NULL")),
+    Column("name", Text, nullable=False),
+    Column("country", Text, nullable=False, server_default=text("''")),
+    _created(),
+    Index("ix_drivers_team_id", "team_id"),
+)
+
+events = Table(
+    "events", metadata,
+    _pk(),
+    _org_id(),
+    Column("team_id", BigInteger, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False),
+    Column("track_id", BigInteger, ForeignKey("tracks.id"), nullable=False),
+    Column("name", Text, nullable=False),
+    Column("round", Integer),
+    Column("starts_on", Date),
+    _created(),
+    Index("ix_events_org_team", "org_id", "team_id"),
+    Index("ix_events_track_id", "track_id"),
+)
+
+# `sessions` is reserved for auth, hence run_sessions.
+run_sessions = Table(
+    "run_sessions", metadata,
+    _pk(),
+    _org_id(),
+    Column("event_id", BigInteger, ForeignKey("events.id", ondelete="CASCADE"), nullable=False),
+    Column("car_id", BigInteger, ForeignKey("cars.id", ondelete="SET NULL")),
+    Column("session_type", Text, nullable=False),
+    Column("session_date", TIMESTAMP(timezone=True)),
+    Column("visibility", Text, nullable=False, server_default=text("'public'")),
+    Column("created_by", BigInteger, ForeignKey("users.id", ondelete="SET NULL")),
+    _created(),
+    CheckConstraint(
+        "session_type IN ('test','fp1','fp2','fp3','qual','warmup','race')",
+        name="ck_run_sessions_type",
+    ),
+    CheckConstraint("visibility IN ('public','team')", name="ck_run_sessions_visibility"),
+    Index("ix_run_sessions_event_id", "event_id"),
+)
+
+# Lap times in milliseconds; formatting is a presentation concern.
+laps = Table(
+    "laps", metadata,
+    _pk(),
+    _org_id(),
+    Column("run_session_id", BigInteger,
+           ForeignKey("run_sessions.id", ondelete="CASCADE"), nullable=False),
+    Column("lap_no", Integer, nullable=False),
+    Column("lap_time_ms", Integer, nullable=False),
+    Column("driver_id", BigInteger, ForeignKey("drivers.id", ondelete="SET NULL")),
+    Column("tire_compound", Text, nullable=False, server_default=text("''")),
+    Column("is_pb", Integer, nullable=False, server_default=text("0")),
+    Column("is_fastest", Integer, nullable=False, server_default=text("0")),
+    Column("visibility", Text, nullable=False, server_default=text("'public'")),
+    _created(),
+    CheckConstraint("visibility IN ('public','team')", name="ck_laps_visibility"),
+    CheckConstraint("lap_time_ms > 0", name="ck_laps_time_positive"),
+    Index("ix_laps_run_session_id", "run_session_id"),
+)
+
+# Setup sheets default to team-only — this is the IP the fan wall protects.
+setups = Table(
+    "setups", metadata,
+    _pk(),
+    _org_id(),
+    Column("setup_key", Text, nullable=False),
+    Column("team_id", BigInteger, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False),
+    Column("track_id", BigInteger, ForeignKey("tracks.id"), nullable=False),
+    Column("run_session_id", BigInteger, ForeignKey("run_sessions.id", ondelete="SET NULL")),
+    Column("baseline", Text, nullable=False, server_default=text("''")),
+    Column("revision_label", Text, nullable=False, server_default=text("'A'")),
+    Column("visibility", Text, nullable=False, server_default=text("'team'")),
+    Column("engineer_id", BigInteger, ForeignKey("users.id", ondelete="SET NULL")),
+    Column("notes", Text, nullable=False, server_default=text("''")),
+    _created(),
+    UniqueConstraint("org_id", "setup_key", name="uq_setups_org_setup_key"),
+    CheckConstraint("visibility IN ('public','team')", name="ck_setups_visibility"),
+    Index("ix_setups_org_team_track", "org_id", "team_id", "track_id"),
+)
+
+# Key/value like part_attributes, so new setup fields need no migration.
+setup_values = Table(
+    "setup_values", metadata,
+    _pk(),
+    _org_id(),
+    Column("setup_id", BigInteger, ForeignKey("setups.id", ondelete="CASCADE"), nullable=False),
+    Column("group_name", Text, nullable=False, server_default=text("''")),
+    Column("attr_key", Text, nullable=False),
+    Column("attr_value", Text, nullable=False, server_default=text("''")),
+    Column("unit", Text, nullable=False, server_default=text("''")),
+    Column("attr_order", Integer, nullable=False, server_default=text("0")),
+    UniqueConstraint("setup_id", "attr_key", name="uq_setup_values_setup_id_attr_key"),
+    Index("ix_setup_values_setup_id", "setup_id"),
+)
+
+checklists = Table(
+    "checklists", metadata,
+    _pk(),
+    _org_id(),
+    Column("team_id", BigInteger, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False),
+    Column("name", Text, nullable=False),
+    Column("is_template", Integer, nullable=False, server_default=text("0")),
+    Column("event_id", BigInteger, ForeignKey("events.id", ondelete="SET NULL")),
+    _created(),
+    Index("ix_checklists_org_team", "org_id", "team_id"),
+)
+
+checklist_items = Table(
+    "checklist_items", metadata,
+    _pk(),
+    _org_id(),
+    Column("checklist_id", BigInteger,
+           ForeignKey("checklists.id", ondelete="CASCADE"), nullable=False),
+    Column("label", Text, nullable=False),
+    Column("assigned_role", Text, nullable=False, server_default=text("''")),
+    Column("is_done", Integer, nullable=False, server_default=text("0")),
+    Column("signed_by", BigInteger, ForeignKey("users.id", ondelete="SET NULL")),
+    Column("signed_at", TIMESTAMP(timezone=True)),
+    Column("item_order", Integer, nullable=False, server_default=text("0")),
+    Index("ix_checklist_items_checklist_id", "checklist_id"),
+)
+
+# Racing context for an existing PLM part: which car runs it, and its life.
+part_usages = Table(
+    "part_usages", metadata,
+    _pk(),
+    _org_id(),
+    Column("part_id", BigInteger, ForeignKey("parts.id", ondelete="CASCADE"), nullable=False),
+    Column("team_id", BigInteger, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False),
+    Column("car_id", BigInteger, ForeignKey("cars.id", ondelete="SET NULL")),
+    Column("hours_used", Float, nullable=False, server_default=text("0")),
+    Column("hours_limit", Float),
+    Column("cycles_used", Integer, nullable=False, server_default=text("0")),
+    Column("cycles_limit", Integer),
+    Column("status", Text, nullable=False, server_default=text("'ok'")),
+    Column("updated_at", TIMESTAMP(timezone=True), server_default=func.now()),
+    UniqueConstraint("part_id", "team_id", name="uq_part_usages_part_id_team_id"),
+    CheckConstraint("status IN ('ok','service_soon','over')", name="ck_part_usages_status"),
+    Index("ix_part_usages_org_team", "org_id", "team_id"),
+    Index("ix_part_usages_part_id", "part_id"),
+)
+
+# ── Fan layer — global: a fan is a USER, not a tenant ─────────────────────────
+fan_profiles = Table(
+    "fan_profiles", metadata,
+    _pk(),
+    Column("user_id", BigInteger, ForeignKey("users.id", ondelete="CASCADE"),
+           nullable=False, unique=True),
+    Column("display_name", Text, nullable=False, server_default=text("''")),
+    Column("fan_type", Text, nullable=False, server_default=text("'spectator'")),
+    Column("points", Integer, nullable=False, server_default=text("0")),
+    _created(),
+    CheckConstraint("fan_type IN ('spectator','member')", name="ck_fan_profiles_type"),
+)
+
+follows = Table(
+    "follows", metadata,
+    _pk(),
+    Column("user_id", BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column("team_id", BigInteger, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False),
+    _created(),
+    UniqueConstraint("user_id", "team_id", name="uq_follows_user_id_team_id"),
+    Index("ix_follows_team_id", "team_id"),
+)
+
+predictions = Table(
+    "predictions", metadata,
+    _pk(),
+    Column("user_id", BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column("run_session_id", BigInteger, ForeignKey("run_sessions.id", ondelete="CASCADE")),
+    Column("question", Text, nullable=False),
+    Column("answer", Text, nullable=False),
+    Column("is_correct", Integer),
+    Column("points_awarded", Integer, nullable=False, server_default=text("0")),
+    _created(),
+    Index("ix_predictions_user_id", "user_id"),
+)
+
+point_ledger = Table(
+    "point_ledger", metadata,
+    _pk(),
+    Column("user_id", BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column("delta", Integer, nullable=False),
+    Column("reason", Text, nullable=False, server_default=text("''")),
+    Column("ref_type", Text, nullable=False, server_default=text("''")),
+    Column("ref_id", BigInteger),
+    _created(),
+    Index("ix_point_ledger_user_id", "user_id"),
+)
+
+badges = Table(
+    "badges", metadata,
+    _pk(),
+    Column("code", Text, nullable=False, unique=True),
+    Column("name", Text, nullable=False),
+    Column("description", Text, nullable=False, server_default=text("''")),
+)
+
+user_badges = Table(
+    "user_badges", metadata,
+    _pk(),
+    Column("user_id", BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column("badge_id", BigInteger, ForeignKey("badges.id", ondelete="CASCADE"), nullable=False),
+    Column("earned_at", TIMESTAMP(timezone=True), server_default=func.now()),
+    UniqueConstraint("user_id", "badge_id", name="uq_user_badges_user_id_badge_id"),
+    Index("ix_user_badges_user_id", "user_id"),
+)
+
+# Paid fan tier; revenue share is reporting on top of this table.
+garage_passes = Table(
+    "garage_passes", metadata,
+    _pk(),
+    Column("user_id", BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column("team_id", BigInteger, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False),
+    Column("tier", Text, nullable=False, server_default=text("'garage_pass'")),
+    Column("price_cents", Integer, nullable=False, server_default=text("600")),
+    Column("status", Text, nullable=False, server_default=text("'active'")),
+    Column("started_at", TIMESTAMP(timezone=True), server_default=func.now()),
+    UniqueConstraint("user_id", "team_id", name="uq_garage_passes_user_id_team_id"),
+    CheckConstraint("status IN ('active','canceled','past_due')", name="ck_garage_passes_status"),
+    Index("ix_garage_passes_team_id", "team_id"),
+)
+
+
 # Tables protected by row-level security (org_id + policy). Kept here as the
 # authoritative list the migrations enable RLS on and the query layer scopes.
 TENANT_TABLES: tuple[str, ...] = (
@@ -247,6 +529,18 @@ TENANT_TABLES: tuple[str, ...] = (
     "documents",
     "file_versions",
     "audit_log",
+    # Racing domain (Phase 3) — same isolation contract as the PLM core.
+    "teams",
+    "cars",
+    "drivers",
+    "events",
+    "run_sessions",
+    "laps",
+    "setups",
+    "setup_values",
+    "checklists",
+    "checklist_items",
+    "part_usages",
 )
 
 
