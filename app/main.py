@@ -26,6 +26,7 @@ from .routers import (
     users_router,
     racing_router,
     public_router,
+    racing_write_router,
 )
 
 _STATIC = Path(__file__).parent.parent / "static"
@@ -61,6 +62,7 @@ app.include_router(users_router.router)
 app.include_router(admin_router.router)
 app.include_router(racing_router.router)
 app.include_router(public_router.router)
+app.include_router(racing_write_router.router)
 
 
 # ── Pages ────────────────────────────────────────────────────────────────────

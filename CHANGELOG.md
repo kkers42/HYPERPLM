@@ -202,3 +202,28 @@ container on port 4000 behind nginx (hyperplm.com), and a final independent revi
 - Mock CTAs now point at the real app (`/login`, `/racing`).
 - **Not yet reviewed** (rule 5).
 
+### Racing domain (Phase 3, step 5) — writes + database integrity
+
+- Migration `0005_racing_integrity.py` — two rules moved into the database so they hold
+  regardless of which code path writes:
+  - `sync_team_directory()` trigger mirrors `teams` into `team_directory` on INSERT/UPDATE
+    (0004 only backfilled, so a team created afterwards would have been invisible to fans).
+    Slugs are derived and de-duplicated; `is_public` is preserved across updates so a rename
+    never silently republishes. New teams default to **not public** — publishing is opt-in.
+  - `derive_part_status()` trigger computes `part_usages.status` from hours/cycles against
+    their limits (>=100% over, >=80% service_soon, else ok), so a caller can no longer store
+    a status that contradicts the numbers.
+- Write layer in `app/racing.py`: teams, cars, drivers, events, sessions, laps, setups +
+  values, setup cloning (how a revision is actually made), checklists, item sign-off, part
+  hours, and team publish. Every insert sets org_id from the tenant session, so RLS
+  WITH CHECK rejects a cross-tenant write at the database.
+- `app/routers/racing_write_router.py` (separate from the read router — different gating):
+  reads need `view`, writes need `write`, and **publishing needs `release`** — pushing data
+  to the fan side is as deliberate an act as releasing a part.
+- Logging a lap recomputes PB/fastest for that session automatically; publishing a session
+  publishes its laps with it.
+- Verified end-to-end on the Atlas copy: created a team (correctly NOT public), published it
+  (appeared to fans), ran event → session → 3 laps with the fastest auto-flagged, and updated
+  part hours to watch the trigger re-derive the status.
+- **Not yet reviewed** (rule 5).
+

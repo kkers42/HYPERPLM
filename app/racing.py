@@ -214,3 +214,178 @@ def org_summary(db: TenantDB) -> dict:
         "best_lap_ms": best,
         "tracks_available": track_count,
     }
+
+
+# ══ WRITES ════════════════════════════════════════════════════════════════════
+# Every insert sets org_id explicitly (RLS WITH CHECK requires it to match the
+# active org, so a cross-tenant write is rejected by the database, not by us).
+
+from sqlalchemy import delete, insert, update  # noqa: E402
+
+from .db import team_directory  # noqa: E402
+
+
+def create_team(db: TenantDB, data: dict) -> dict:
+    row = db.execute(insert(teams).values({
+        "org_id": db.org_id, "team_key": data["team_key"], "name": data["name"],
+        "series": data.get("series", ""), "class": data.get("class", ""),
+        "car_number": data.get("car_number", ""),
+    }).returning(teams)).first()
+    return dict(row._mapping)
+
+
+def create_car(db: TenantDB, data: dict) -> dict:
+    row = db.execute(insert(cars).values(
+        org_id=db.org_id, team_id=data["team_id"], chassis=data["chassis"],
+        model=data.get("model", ""), homologation=data.get("homologation", ""),
+    ).returning(cars)).first()
+    return dict(row._mapping)
+
+
+def create_driver(db: TenantDB, data: dict) -> dict:
+    row = db.execute(insert(drivers).values(
+        org_id=db.org_id, team_id=data["team_id"], name=data["name"],
+        country=data.get("country", ""),
+    ).returning(drivers)).first()
+    return dict(row._mapping)
+
+
+def create_event(db: TenantDB, data: dict) -> dict:
+    row = db.execute(insert(events).values(
+        org_id=db.org_id, team_id=data["team_id"], track_id=data["track_id"],
+        name=data["name"], round=data.get("round"), starts_on=data.get("starts_on"),
+    ).returning(events)).first()
+    return dict(row._mapping)
+
+
+def create_session(db: TenantDB, data: dict, user_id: int) -> dict:
+    row = db.execute(insert(run_sessions).values(
+        org_id=db.org_id, event_id=data["event_id"], car_id=data.get("car_id"),
+        session_type=data["session_type"], session_date=data.get("session_date"),
+        visibility=data.get("visibility", "public"), created_by=user_id,
+    ).returning(run_sessions)).first()
+    return dict(row._mapping)
+
+
+def add_lap(db: TenantDB, data: dict) -> dict:
+    """Log a lap, then recompute PB/fastest flags for the whole session."""
+    row = db.execute(insert(laps).values(
+        org_id=db.org_id, run_session_id=data["run_session_id"],
+        lap_no=data["lap_no"], lap_time_ms=data["lap_time_ms"],
+        driver_id=data.get("driver_id"), tire_compound=data.get("tire_compound", ""),
+        visibility=data.get("visibility", "public"),
+    ).returning(laps)).first()
+    _reflag_session(db, data["run_session_id"])
+    return dict(row._mapping)
+
+
+def _reflag_session(db: TenantDB, run_session_id: int) -> None:
+    best = db.execute(
+        select(func.min(laps.c.lap_time_ms)).where(laps.c.run_session_id == run_session_id)
+    ).scalar()
+    db.execute(update(laps).where(laps.c.run_session_id == run_session_id)
+               .values(is_fastest=0, is_pb=0))
+    if best is not None:
+        db.execute(update(laps).where(laps.c.run_session_id == run_session_id,
+                                      laps.c.lap_time_ms == best).values(is_fastest=1, is_pb=1))
+
+
+def set_session_visibility(db: TenantDB, session_id: int, visibility: str) -> None:
+    """Publishing a session publishes its laps with it."""
+    db.execute(update(run_sessions).where(run_sessions.c.id == session_id)
+               .values(visibility=visibility))
+    db.execute(update(laps).where(laps.c.run_session_id == session_id)
+               .values(visibility=visibility))
+
+
+def create_setup(db: TenantDB, data: dict, user_id: int) -> dict:
+    row = db.execute(insert(setups).values(
+        org_id=db.org_id, setup_key=data["setup_key"], team_id=data["team_id"],
+        track_id=data["track_id"], run_session_id=data.get("run_session_id"),
+        baseline=data.get("baseline", ""), revision_label=data.get("revision_label", "A"),
+        visibility=data.get("visibility", "team"), engineer_id=user_id,
+        notes=data.get("notes", ""),
+    ).returning(setups)).first()
+    return dict(row._mapping)
+
+
+def set_setup_value(db: TenantDB, setup_id: int, key: str, value: str,
+                    group: str = "", unit: str = "", order: int = 0) -> None:
+    existing = db.execute(select(setup_values.c.id).where(
+        setup_values.c.setup_id == setup_id, setup_values.c.attr_key == key)).first()
+    if existing:
+        db.execute(update(setup_values).where(setup_values.c.id == existing[0])
+                   .values(attr_value=value, unit=unit, group_name=group))
+    else:
+        db.execute(insert(setup_values).values(
+            org_id=db.org_id, setup_id=setup_id, group_name=group,
+            attr_key=key, attr_value=value, unit=unit, attr_order=order))
+
+
+def clone_setup(db: TenantDB, setup_key: str, new_key: str, user_id: int) -> Optional[dict]:
+    """Copy a sheet and its values — how a new revision actually gets made."""
+    src = get_setup(db, setup_key)
+    if not src:
+        return None
+    new = create_setup(db, {
+        "setup_key": new_key, "team_id": src["team_id"],
+        "track_id": db.execute(select(setups.c.track_id)
+                               .where(setups.c.id == src["id"])).scalar(),
+        "baseline": src["baseline"] or src["setup_key"],
+        "revision_label": src["revision_label"], "visibility": src["visibility"],
+        "notes": src["notes"],
+    }, user_id)
+    for i, v in enumerate(src["values"]):
+        set_setup_value(db, new["id"], v["attr_key"], v["attr_value"],
+                        v["group_name"], v["unit"], i)
+    return new
+
+
+def set_setup_visibility(db: TenantDB, setup_id: int, visibility: str) -> None:
+    db.execute(update(setups).where(setups.c.id == setup_id).values(visibility=visibility))
+
+
+def toggle_checklist_item(db: TenantDB, item_id: int, done: bool, user_id: int) -> None:
+    db.execute(update(checklist_items).where(checklist_items.c.id == item_id).values(
+        is_done=1 if done else 0,
+        signed_by=user_id if done else None,
+        signed_at=func.now() if done else None,
+    ))
+
+
+def create_checklist(db: TenantDB, data: dict) -> dict:
+    row = db.execute(insert(checklists).values(
+        org_id=db.org_id, team_id=data["team_id"], name=data["name"],
+        is_template=1 if data.get("is_template") else 0, event_id=data.get("event_id"),
+    ).returning(checklists)).first()
+    cl = dict(row._mapping)
+    for i, label in enumerate(data.get("items", [])):
+        db.execute(insert(checklist_items).values(
+            org_id=db.org_id, checklist_id=cl["id"], label=label, item_order=i))
+    return cl
+
+
+def log_part_hours(db: TenantDB, part_usage_id: int, hours_used: float) -> None:
+    """status is derived by a DB trigger (migration 0005), never passed in."""
+    db.execute(update(part_usages).where(part_usages.c.id == part_usage_id)
+               .values(hours_used=hours_used))
+
+
+def track_part(db: TenantDB, data: dict) -> dict:
+    row = db.execute(insert(part_usages).values(
+        org_id=db.org_id, part_id=data["part_id"], team_id=data["team_id"],
+        car_id=data.get("car_id"), hours_used=data.get("hours_used", 0),
+        hours_limit=data.get("hours_limit"), cycles_limit=data.get("cycles_limit"),
+    ).returning(part_usages)).first()
+    return dict(row._mapping)
+
+
+def set_team_public(db: TenantDB, team_id: int, is_public: bool) -> None:
+    """Publish/unpublish a team to the fan side. team_directory is global, so
+    this is the one racing write that touches a non-RLS table — the team_id is
+    resolved inside the tenant session first, so you can only publish your own."""
+    own = db.execute(select(teams.c.id).where(teams.c.id == team_id)).first()
+    if not own:
+        raise PermissionError("team not in this organization")
+    db.execute(update(team_directory).where(team_directory.c.team_id == team_id)
+               .values(is_public=1 if is_public else 0))
