@@ -910,3 +910,193 @@ lineChart(document.getElementById('weekendChart'),[
   if(document.readyState!=="loading") boot(); else addEventListener("DOMContentLoaded",boot);
 })();
 </script>
+<script>
+/* ── WRITE ACTIONS + PUBLISH CONTROLS (issues #3, #4) ───────────────────────
+   Adds the operating controls to the existing design without touching its
+   markup: log laps, create events/sessions, sign off checklist items, log part
+   hours, and publish/unpublish to the fan side. Writes go through the gated
+   API (write to create, release to publish); the page reloads after a write so
+   what you see always came from the database. */
+(function(){
+  const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+  const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const fmt=ms=>ms==null?"—":`${Math.floor(ms/60000)}:${((ms%60000)/1000).toFixed(3).padStart(6,"0")}`;
+  const toMs=s=>{const m=String(s).trim().match(/^(?:(\d+):)?(\d+(?:\.\d+)?)$/);
+    return m?Math.round((+(m[1]||0))*60000+parseFloat(m[2])*1000):null;};
+
+  async function api(p,method="GET",body){
+    const o={method,credentials:"same-origin",headers:{}};
+    if(body!==undefined){o.headers["Content-Type"]="application/json";o.body=JSON.stringify(body);}
+    const r=await fetch(p,o);
+    if(r.status===401){location.href="/login";throw new Error("auth");}
+    if(!r.ok){let d="";try{d=(await r.json()).detail||""}catch(e){}
+      throw new Error(d||`${p} → ${r.status}`);}
+    return r.status===204?null:r.json();
+  }
+
+  /* modal in the page's own visual language */
+  const css=document.createElement("style");
+  css.textContent=`
+  .pk-ov{position:fixed;inset:0;background:#0008;backdrop-filter:blur(2px);z-index:200;display:grid;place-items:center;padding:20px}
+  .pk-md{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);width:min(460px,100%);overflow:hidden}
+  .pk-md h3{font-size:15px;padding:15px 18px;border-bottom:1px solid var(--border);margin:0}
+  .pk-bd{padding:16px 18px;display:flex;flex-direction:column;gap:11px}
+  .pk-bd label{font-family:var(--f-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:5px}
+  .pk-bd input,.pk-bd select{width:100%;font:inherit;font-size:14px;background:var(--surface-2);border:1px solid var(--border);
+    color:var(--text);border-radius:9px;padding:9px 11px}
+  .pk-bd input:focus,.pk-bd select:focus{outline:2px solid var(--accent);outline-offset:1px}
+  .pk-ft{display:flex;gap:9px;justify-content:flex-end;padding:13px 18px;border-top:1px solid var(--border)}
+  .pk-err{color:var(--red);font-size:12.5px;min-height:1em}
+  .pk-act{font:inherit;font-size:12px;font-weight:650;border:1px solid var(--border-strong);background:var(--surface);
+    color:var(--text);padding:5px 11px;border-radius:8px;cursor:pointer;margin-left:6px}
+  .pk-act.go{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .pk-act.pub{background:var(--green-bg);color:var(--green);border-color:transparent}
+  .pk-act.prv{background:var(--purple-bg);color:var(--purple);border-color:transparent}
+  .check{cursor:pointer}`;
+  document.head.appendChild(css);
+
+  function modal(title,fields,onSubmit){
+    const ov=document.createElement("div"); ov.className="pk-ov";
+    ov.innerHTML=`<div class="pk-md"><h3>${esc(title)}</h3><div class="pk-bd">
+      ${fields.map(f=>`<div><label>${esc(f.label)}</label>${
+        f.type==="select"
+          ? `<select name="${f.name}">${f.options.map(o=>`<option value="${esc(o[0])}">${esc(o[1])}</option>`).join("")}</select>`
+          : `<input name="${f.name}" placeholder="${esc(f.ph||"")}" value="${esc(f.value||"")}">`}</div>`).join("")}
+      <div class="pk-err"></div></div>
+      <div class="pk-ft"><button class="btn" data-x>Cancel</button><button class="btn primary" data-ok>Save</button></div></div>`;
+    document.body.appendChild(ov);
+    const close=()=>ov.remove();
+    ov.querySelector("[data-x]").onclick=close;
+    ov.onclick=e=>{if(e.target===ov)close();};
+    ov.querySelector("[data-ok]").onclick=async()=>{
+      const v={}; $$("input,select",ov).forEach(i=>v[i.name]=i.value);
+      const btn=ov.querySelector("[data-ok]"); btn.disabled=true; btn.textContent="Saving…";
+      try{ await onSubmit(v); location.reload(); }
+      catch(e){ ov.querySelector(".pk-err").textContent=e.message; btn.disabled=false; btn.textContent="Save"; }
+    };
+    ov.querySelector("input,select")?.focus();
+    return ov;
+  }
+  const btn=(label,cls,fn)=>{const b=document.createElement("button");
+    b.className="pk-act "+(cls||""); b.textContent=label; b.onclick=e=>{e.stopPropagation();fn();}; return b;};
+
+  async function init(){
+    let teams,tracks,sessions,pub;
+    try{
+      [teams,tracks]=await Promise.all([api("/api/racing/teams"),api("/api/racing/tracks")]);
+      pub=await fetch("/api/public/teams").then(r=>r.json()).catch(()=>[]);
+    }catch(e){ return; }
+    const team=teams[0]; if(!team) return;
+    sessions=await api(`/api/racing/teams/${team.id}/sessions`).catch(()=>[]);
+    const events=[...new Map(sessions.map(s=>[s.event,s])).values()];
+    const isPublic=pub.some(p=>String(p.car_number)===String(team.car_number));
+
+    /* ── #4 publish the team (top bar) ── */
+    const bar=$(".ctx");
+    if(bar){
+      bar.appendChild(btn(isPublic?"● Public":"○ Private", isPublic?"pub":"prv", async()=>{
+        await api(`/api/racing/teams/${team.id}/public`,"PATCH",{is_public:!isPublic});
+        location.reload();
+      }));
+    }
+
+    /* ── #3 log a lap / new session (Lap Times header) ── */
+    const lapHead=$$("#v-times .card-h")[0];
+    if(lapHead){
+      lapHead.appendChild(btn("＋ Log lap","go",()=>{
+        if(!sessions.length) return alert("Create a session first.");
+        modal("Log a lap",[
+          {label:"Session",name:"run_session_id",type:"select",
+           options:sessions.map(s=>[s.id,`${s.session_type.toUpperCase()} · ${s.track}`])},
+          {label:"Lap number",name:"lap_no",ph:"12"},
+          {label:"Lap time",name:"t",ph:"1:41.208"},
+          {label:"Tire",name:"tire_compound",ph:"Med"},
+        ],async v=>{
+          const ms=toMs(v.t); if(!ms) throw new Error("Time must look like 1:41.208");
+          await api("/api/racing/laps","POST",{run_session_id:+v.run_session_id,
+            lap_no:+v.lap_no||1, lap_time_ms:ms, tire_compound:v.tire_compound||""});
+        });
+      }));
+      lapHead.appendChild(btn("＋ Session","",()=>{
+        modal("New session",[
+          {label:"Event",name:"event",type:"select",
+           options:[...events.map(e=>[e.event,e.event]),["__new","+ New event…"]]},
+          {label:"New event name (if above)",name:"newname",ph:"Six Hours of The Glen"},
+          {label:"Track (for new event)",name:"track_id",type:"select",
+           options:tracks.map(t=>[t.id,t.name])},
+          {label:"Session type",name:"session_type",type:"select",
+           options:[["fp1","FP1"],["fp2","FP2"],["fp3","FP3"],["qual","Qualifying"],
+                    ["warmup","Warmup"],["race","Race"],["test","Test"]]},
+        ],async v=>{
+          let eventId;
+          if(v.event==="__new"){
+            const ev=await api("/api/racing/events","POST",{team_id:team.id,
+              track_id:+v.track_id, name:v.newname||"New event"});
+            eventId=ev.id;
+          }else{
+            const m=sessions.find(s=>s.event===v.event); eventId=m?m.event_id:null;
+            if(!eventId){ const ev=await api("/api/racing/events","POST",
+              {team_id:team.id,track_id:+v.track_id,name:v.event}); eventId=ev.id; }
+          }
+          await api("/api/racing/sessions","POST",
+            {event_id:eventId,session_type:v.session_type,session_date:new Date().toISOString()});
+        });
+      }));
+    }
+
+    /* ── #4 publish/unpublish each session (session table) ── */
+    const sessTbl=$$("#v-times table")[0];
+    if(sessTbl) $$("tbody tr",sessTbl).forEach((tr,i)=>{
+      const s=sessions[i]; if(!s) return;
+      const cell=tr.lastElementChild; if(!cell) return;
+      const on=s.visibility==="public";
+      cell.appendChild(btn(on?"Unpublish":"Publish", on?"prv":"pub", async()=>{
+        await api(`/api/racing/sessions/${s.id}/visibility`,"PATCH",
+          {visibility:on?"team":"public"});
+        location.reload();
+      }));
+    });
+
+    /* ── #4 publish the setup sheet ── */
+    try{
+      const sheets=await api("/api/racing/setups");
+      const head=$("#v-setup .page-head");
+      if(head&&sheets.length){
+        const s=sheets[0], on=s.visibility==="public";
+        head.appendChild(btn(on?"Unpublish sheet":"Publish sheet", on?"prv":"pub", async()=>{
+          if(!on&&!confirm("Publish this setup sheet to fans? Corner weights, dampers and aero become public."))return;
+          await api(`/api/racing/setups/${s.id}/visibility`,"PATCH",{visibility:on?"team":"public"});
+          location.reload();
+        }));
+      }
+    }catch(e){}
+
+    /* ── #3 checklist sign-off (click an item) ── */
+    try{
+      const cls=await api("/api/racing/checklists");
+      const cards=$$("#v-checklists .card");
+      cls.slice(0,cards.length).forEach((c,ci)=>{
+        $$(".check",cards[ci]).forEach((el,ii)=>{
+          const it=c.items[ii]; if(!it||!it.id) return;
+          el.title="Click to sign off";
+          el.onclick=async()=>{ await api(`/api/racing/checklist-items/${it.id}?done=${!it.is_done}`,"PATCH");
+            location.reload(); };
+        });
+      });
+    }catch(e){}
+
+    /* ── #3 log part hours (click a parts row) ── */
+    try{
+      const parts=await api("/api/racing/parts");
+      $$("#v-parts table tbody tr").forEach((tr,i)=>{
+        const p=parts[i]; if(!p) return;
+        tr.style.cursor="pointer"; tr.title="Click to log hours";
+        tr.onclick=()=>modal(`Log hours — ${p.part_number}`,[
+          {label:"Hours used",name:"hours_used",value:String(p.hours_used)},
+        ],async v=>{ await api(`/api/racing/parts/${p.id}/hours`,"PATCH",{hours_used:parseFloat(v.hours_used)||0}); });
+      });
+    }catch(e){}
+  }
+  addEventListener("load",()=>setTimeout(init,400));
+})();
+</script>

@@ -227,3 +227,26 @@ container on port 4000 behind nginx (hyperplm.com), and a final independent revi
   part hours to watch the trigger re-derive the status.
 - **Not yet reviewed** (rule 5).
 
+### Racing domain (Phase 3, step 6) — operating controls (issues #3, #4)
+
+- Write actions in the racing workspace, added to the approved design without touching its
+  markup (a second appended script, same pattern as the hydration layer):
+  - **Log lap** — pick a session, enter `1:41.208`, choose tire. PB/fastest are recomputed
+    server-side for the session.
+  - **New session** — against an existing event or creating one (track picker from the
+    seeded circuit list).
+  - **Checklist sign-off** — click an item; the API records who and when.
+  - **Log part hours** — click a parts row; `status` is re-derived by the 0005 trigger.
+- Publish controls (the fan wall, now operable):
+  - Team **Public / Private** pill in the context bar.
+  - Per-session **Publish / Unpublish** in the session table — publishing a session publishes
+    its laps with it.
+  - **Publish sheet** on the setup page, behind a confirm, since it exposes corner weights,
+    dampers and aero.
+  - All publish paths require the `release` ability, not just `write`.
+- Read API now exposes `checklist_items.id` and `run_sessions.event_id`, which the controls
+  need to target rows.
+- Verified on the Atlas copy: signed off an item (4/6 → 5/6); un-published a session and
+  watched the fan view drop from 4 laps to 3, then republished and saw it return to 4.
+- **Not yet reviewed** (rule 5).
+

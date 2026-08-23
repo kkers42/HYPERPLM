@@ -95,7 +95,7 @@ def list_sessions(db: TenantDB, team_id: int) -> list[dict]:
     """Session log with lap counts and the best lap of each session."""
     stmt = (
         select(
-            run_sessions.c.id, run_sessions.c.session_type,
+            run_sessions.c.id, run_sessions.c.event_id, run_sessions.c.session_type,
             run_sessions.c.session_date, run_sessions.c.visibility,
             events.c.name.label("event"), tracks.c.name.label("track"),
             func.count(laps.c.id).label("lap_count"),
@@ -107,7 +107,7 @@ def list_sessions(db: TenantDB, team_id: int) -> list[dict]:
                         .outerjoin(laps, laps.c.run_session_id == run_sessions.c.id)
         )
         .where(events.c.team_id == team_id)
-        .group_by(run_sessions.c.id, run_sessions.c.session_type,
+        .group_by(run_sessions.c.id, run_sessions.c.event_id, run_sessions.c.session_type,
                   run_sessions.c.session_date, run_sessions.c.visibility,
                   events.c.name, tracks.c.name)
         .order_by(run_sessions.c.session_date)
@@ -161,8 +161,8 @@ def list_checklists(db: TenantDB, team_id: Optional[int] = None) -> list[dict]:
     out = _rows(db.execute(stmt))
     for c in out:
         items = _rows(db.execute(
-            select(checklist_items.c.label, checklist_items.c.assigned_role,
-                   checklist_items.c.is_done)
+            select(checklist_items.c.id, checklist_items.c.label,
+                   checklist_items.c.assigned_role, checklist_items.c.is_done)
             .where(checklist_items.c.checklist_id == c["id"])
             .order_by(checklist_items.c.item_order)
         ))
