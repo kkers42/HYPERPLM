@@ -250,3 +250,29 @@ container on port 4000 behind nginx (hyperplm.com), and a final independent revi
   watched the fan view drop from 4 laps to 3, then republished and saw it return to 4.
 - **Not yet reviewed** (rule 5).
 
+### Racing domain (Phase 3, step 7) — fixes to #3/#4 found by driving the real UI
+
+Reported as "#3 and #4 don't work". Verified in a real browser against
+atlas.hyperplm; four separate causes, none of which the API-level tests could catch:
+
+- **Modal froze the page.** The overlay used `backdrop-filter: blur()` across the full
+  viewport, composited over the design's large inline SVG charts. Painting stalled hard
+  enough that clicking a control looked like nothing happened. Replaced with a plain scrim.
+- **Stale HTML served from browser cache.** `/racing` and `/paddock` are static shells that
+  change every deploy, so a cached copy silently hid the new controls entirely. App pages
+  now send `Cache-Control: no-store, must-revalidate`.
+- **Workspace defaulted to a team with no data.** It took `teams[0]`, which sorts by car
+  number — that was #07, a team with zero sessions and zero laps, so every panel looked
+  empty and "＋ Log lap" refused to open. It now defaults to the team that has actually run,
+  and a **team switcher** in the context bar lets you change it (remembered per browser).
+- **Blocking native dialogs.** `alert()`/`confirm()` froze the renderer under the extension
+  and are hostile in an operating tool. Replaced with in-page notice/confirm modals.
+
+Also hydrated three panels that were still showing mock content: the season/weekend charts
+(now real lap times, session-fastest in purple), "This weekend" (now the real checklist with
+its sign-off count), and Fan Reach (now the true published state, not a fabricated follower
+count).
+
+Verified end-to-end in the browser: logged FP1 lap 7 at 1:39.512 on Soft through the modal
+and confirmed it persisted and was flagged fastest for its session.
+

@@ -795,11 +795,25 @@ lineChart(document.getElementById('weekendChart'),[
   const pathFor=n=>PATHS[String(n).toLowerCase().slice(0,10)] ||
     "M14,40 C14,22 46,16 74,22 C96,27 104,14 128,16 C168,19 200,22 196,36 C192,48 150,44 120,46 C80,49 40,54 22,50 C12,47 14,44 14,40Z";
 
+  /* Default to the team that has run — not whichever sorts first by car number.
+     A saved choice (team switcher) wins. */
+  async function pickTeam(teams){
+    const saved=+localStorage.getItem("pk_team")||0;
+    const hit=teams.find(t=>t.id===saved); if(hit) return hit;
+    let best=teams[0], bestN=-1;
+    for(const t of teams){
+      const n=await api(`/api/racing/teams/${t.id}/sessions`).then(x=>x.length).catch(()=>0);
+      if(n>bestN){bestN=n;best=t;}
+    }
+    return best;
+  }
+
   async function boot(){
     let sum,teams;
     try{ [sum,teams]=await Promise.all([api("/api/racing/summary"),api("/api/racing/teams")]); }
     catch(e){ if(e.message!=="auth") console.error(e); return; }
-    const team=teams[0]; if(!team) return;
+    const team=await pickTeam(teams); if(!team) return;
+    window.PK_TEAM=team; window.PK_TEAMS=teams;
 
     // top bar context
     const no=$(".ctx .car-no"), meta=$(".ctx-meta");
@@ -890,6 +904,57 @@ lineChart(document.getElementById('weekendChart'),[
         pk[2].querySelector(".big").textContent=parts.filter(p=>p.status!=="ok").length; }
     }catch(e){}
 
+    // CHART (replace the mock season trend with real laps)
+    try{
+      const laps=await api(`/api/racing/teams/${team.id}/laps`);
+      if(laps.length && typeof lineChart==="function"){
+        const byTime=[...laps].sort((a,b)=>(a.session_date||"").localeCompare(b.session_date||""));
+        const pts=byTime.map((l,i)=>({y:l.lap_time_ms/1000,
+          t:l.session_type.toUpperCase(), big:l.is_fastest,
+          c:l.is_fastest?"var(--purple)":(l.is_pb?"var(--green)":undefined),
+          lab:l.is_fastest?fmt(l.lap_time_ms):undefined}));
+        const ys=pts.map(p=>p.y);
+        const opt={color:"var(--accent)",ymin:Math.min(...ys)-0.6,ymax:Math.max(...ys)+0.6};
+        const a=document.getElementById("seasonChart"), b=document.getElementById("weekendChart");
+        if(a) lineChart(a,pts,opt);
+        if(b) lineChart(b,pts,opt);
+        $$("#v-overview .legend span").forEach((el,i)=>{ if(i===0) el.innerHTML='<i style="background:var(--accent)"></i>Lap time (s)'; });
+      }
+    }catch(e){}
+
+    // FAN REACH (real follower count, not the mock 1,847)
+    try{
+      const pub=await fetch("/api/public/teams").then(r=>r.json()).catch(()=>[]);
+      const isPub=pub.some(p=>String(p.car_number)===String(team.car_number));
+      const h=$$("#v-overview h3").find(el=>/fans following/i.test(el.textContent));
+      if(h) h.textContent = isPub
+        ? `#${team.car_number} is published to fans`
+        : `#${team.car_number} is not published yet`;
+      const p=h&&h.nextElementSibling;
+      if(p) p.innerHTML = isPub
+        ? 'Fans see the public slice below. <a href="/paddock" style="color:var(--purple)">Open the Fan Zone →</a>'
+        : 'Publish the team from the pill in the top bar to make it visible to fans.';
+    }catch(e){}
+
+    // THIS WEEKEND (real checklist, not the mock four rows)
+    try{
+      const cls=await api("/api/racing/checklists");
+      const box=$$("#v-overview .card").find(c=>/this weekend/i.test(c.querySelector(".card-h h3")?.textContent||""));
+      const cl=cls[0];
+      if(box&&cl){
+        const h3=box.querySelector(".card-h h3"); if(h3) h3.textContent=cl.name;
+        const eb=box.querySelector(".card-h .eyebrow"); if(eb) eb.textContent=`${cl.done} / ${cl.total} signed off`;
+        box.querySelectorAll(".check").forEach(el=>el.remove());
+        const first=box.querySelector("div[style*='padding']");
+        if(first) cl.items.slice().reverse().forEach(it=>{
+          const d=document.createElement("div");
+          d.className="check"+(it.is_done?" done":"");
+          d.innerHTML=`<div class="box">${it.is_done?"✓":""}</div><div class="txt">${esc(it.label)}</div><div class="who">${esc(it.assigned_role||"—")}</div>`;
+          first.prepend(d);
+        });
+      }
+    }catch(e){}
+
     // CHECKLISTS
     try{
       const cls=await api("/api/racing/checklists");
@@ -937,7 +1002,7 @@ lineChart(document.getElementById('weekendChart'),[
   /* modal in the page's own visual language */
   const css=document.createElement("style");
   css.textContent=`
-  .pk-ov{position:fixed;inset:0;background:#0008;backdrop-filter:blur(2px);z-index:200;display:grid;place-items:center;padding:20px}
+  .pk-ov{position:fixed;inset:0;background:rgba(4,8,11,.72);z-index:200;display:grid;place-items:center;padding:20px}
   .pk-md{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);width:min(460px,100%);overflow:hidden}
   .pk-md h3{font-size:15px;padding:15px 18px;border-bottom:1px solid var(--border);margin:0}
   .pk-bd{padding:16px 18px;display:flex;flex-direction:column;gap:11px}
@@ -977,6 +1042,29 @@ lineChart(document.getElementById('weekendChart'),[
     ov.querySelector("input,select")?.focus();
     return ov;
   }
+  function notice(title,msg){
+    const ov=document.createElement("div"); ov.className="pk-ov";
+    ov.innerHTML=`<div class="pk-md"><h3>${esc(title)}</h3>
+      <div class="pk-bd"><div style="color:var(--dim);font-size:13.5px;line-height:1.5">${esc(msg)}</div></div>
+      <div class="pk-ft"><button class="btn primary" data-x>OK</button></div></div>`;
+    document.body.appendChild(ov);
+    const c=()=>ov.remove(); ov.querySelector("[data-x]").onclick=c;
+    ov.onclick=e=>{if(e.target===ov)c();};
+  }
+  function confirmModal(title,msg,onYes){
+    const ov=document.createElement("div"); ov.className="pk-ov";
+    ov.innerHTML=`<div class="pk-md"><h3>${esc(title)}</h3>
+      <div class="pk-bd"><div style="color:var(--dim);font-size:13.5px;line-height:1.5">${esc(msg)}</div>
+      <div class="pk-err"></div></div>
+      <div class="pk-ft"><button class="btn" data-x>Cancel</button>
+      <button class="btn primary" data-ok>Publish</button></div></div>`;
+    document.body.appendChild(ov);
+    ov.querySelector("[data-x]").onclick=()=>ov.remove();
+    ov.onclick=e=>{if(e.target===ov)ov.remove();};
+    ov.querySelector("[data-ok]").onclick=async()=>{
+      try{ await onYes(); }catch(e){ ov.querySelector(".pk-err").textContent=e.message; }
+    };
+  }
   const btn=(label,cls,fn)=>{const b=document.createElement("button");
     b.className="pk-act "+(cls||""); b.textContent=label; b.onclick=e=>{e.stopPropagation();fn();}; return b;};
 
@@ -986,8 +1074,21 @@ lineChart(document.getElementById('weekendChart'),[
       [teams,tracks]=await Promise.all([api("/api/racing/teams"),api("/api/racing/tracks")]);
       pub=await fetch("/api/public/teams").then(r=>r.json()).catch(()=>[]);
     }catch(e){ return; }
-    const team=teams[0]; if(!team) return;
+    const team=window.PK_TEAM||teams[0]; if(!team) return;
     sessions=await api(`/api/racing/teams/${team.id}/sessions`).catch(()=>[]);
+
+    /* team switcher — the workspace was defaulting to whichever team sorted
+       first, which could be one with no sessions at all. */
+    const ctx=$(".ctx");
+    if(ctx&&teams.length>1&&!$(".pk-team",ctx)){
+      const sel=document.createElement("select");
+      sel.className="pk-team";
+      sel.style.cssText="margin-left:10px;font:inherit;font-size:12.5px;background:var(--surface-2);"+
+        "border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 8px";
+      sel.innerHTML=teams.map(t=>`<option value="${t.id}" ${t.id===team.id?"selected":""}>#${esc(t.car_number)} ${esc(t.name)}</option>`).join("");
+      sel.onchange=()=>{ localStorage.setItem("pk_team",sel.value); location.reload(); };
+      ctx.appendChild(sel);
+    }
     const events=[...new Map(sessions.map(s=>[s.event,s])).values()];
     const isPublic=pub.some(p=>String(p.car_number)===String(team.car_number));
 
@@ -1004,7 +1105,8 @@ lineChart(document.getElementById('weekendChart'),[
     const lapHead=$$("#v-times .card-h")[0];
     if(lapHead){
       lapHead.appendChild(btn("＋ Log lap","go",()=>{
-        if(!sessions.length) return alert("Create a session first.");
+        if(!sessions.length) return notice("No sessions yet",
+          "Create a session first — use ＋ Session, then log laps against it.");
         modal("Log a lap",[
           {label:"Session",name:"run_session_id",type:"select",
            options:sessions.map(s=>[s.id,`${s.session_type.toUpperCase()} · ${s.track}`])},
@@ -1064,9 +1166,12 @@ lineChart(document.getElementById('weekendChart'),[
       if(head&&sheets.length){
         const s=sheets[0], on=s.visibility==="public";
         head.appendChild(btn(on?"Unpublish sheet":"Publish sheet", on?"prv":"pub", async()=>{
-          if(!on&&!confirm("Publish this setup sheet to fans? Corner weights, dampers and aero become public."))return;
-          await api(`/api/racing/setups/${s.id}/visibility`,"PATCH",{visibility:on?"team":"public"});
-          location.reload();
+          if(on){ await api(`/api/racing/setups/${s.id}/visibility`,"PATCH",{visibility:"team"});
+                  return location.reload(); }
+          confirmModal("Publish this setup sheet?",
+            "Corner weights, dampers, alignment and aero become visible to fans.",
+            async()=>{ await api(`/api/racing/setups/${s.id}/visibility`,"PATCH",{visibility:"public"});
+                       location.reload(); });
         }));
       }
     }catch(e){}

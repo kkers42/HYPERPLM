@@ -65,6 +65,15 @@ app.include_router(public_router.router)
 app.include_router(racing_write_router.router)
 
 
+# App pages are HTML shells that change with every deploy; a cached copy silently
+# hides new UI (and did — the racing controls looked broken until a hard reload).
+_NO_STORE = {"Cache-Control": "no-store, must-revalidate"}
+
+
+def _page(name: str) -> FileResponse:
+    return FileResponse(str(_STATIC / name), headers=_NO_STORE)
+
+
 # ── Pages ────────────────────────────────────────────────────────────────────
 
 @app.get("/")
@@ -74,24 +83,24 @@ async def root(principal=Depends(optional_ctx)):
 
 @app.get("/login")
 async def login_page():
-    return FileResponse(str(_STATIC / "index.html"))
+    return _page("index.html")
 
 
 @app.get("/app")
 async def app_page():
-    return FileResponse(str(_STATIC / "app.html"))
+    return _page("app.html")
 
 
 @app.get("/paddock")
 async def paddock_page():
     """The Paddock — public fan-facing page (no login required)."""
-    return FileResponse(str(_STATIC / "paddock.html"))
+    return _page("paddock.html")
 
 
 @app.get("/racing")
 async def racing_page():
     """Paddock — the racing workspace (Phase 3)."""
-    return FileResponse(str(_STATIC / "racing.html"))
+    return _page("racing.html")
 
 
 @app.get("/api/auth-mode")
