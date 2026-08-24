@@ -276,3 +276,29 @@ count).
 Verified end-to-end in the browser: logged FP1 lap 7 at 1:39.512 on Soft through the modal
 and confirmed it persisted and was flagged fastest for its session.
 
+### Racing domain (Phase 3, step 8) — acceptance tests (issue #8)
+
+- `tests/test_racing_isolation.py` (11 tests) mirrors the Phase 2 suite for the racing
+  domain, testing the two guarantees separately because they are different mechanisms:
+  **RLS keeps orgs apart** (cross-org reads return nothing; direct-id/IDOR access 404s;
+  you cannot publish another org's team) and **`visibility` keeps fans out** (a new team is
+  private until published; a team-only setup is invisible to fans and returns 404 rather
+  than 403 so its existence stays hidden; unpublishing a session withdraws its laps and
+  republishing restores them; unpublishing a team makes its slug unreachable).
+  Also covers publish gating (a Viewer can read but cannot write or publish) and the 0005
+  database rules (part status is derived from hours vs limit, not trusted from the caller;
+  renaming a team does not republish it).
+- `tests/test_ui_contract.py` (13 tests) exists because the controls passed every API test
+  and were still unusable in a browser. It pins each cause as a cheap HTTP/static
+  assertion — no browser needed, which is the point: a suite that only exercises JSON
+  endpoints cannot see any of them. Page shells must send `no-store`; no `alert`/`confirm`
+  in shipped UI; no **full-viewport** backdrop-filter (blurring a small sticky bar is fine
+  and stays allowed — only the whole-viewport case is flagged); the write/publish controls
+  and team switcher must be present in the markup; public pages must work anonymously while
+  the racing API still 401s.
+- Verified by mutation: reintroducing the three regressions (full-screen blur, `alert()`,
+  and dropping `no-store`) fails 6 tests; reverting turns them green again. A test that
+  cannot fail on the bug it describes is worthless, so this was checked rather than assumed.
+- Suite run against a dedicated `hyperplm_pytest` database (the demo instance on the Atlas
+  testing copy is left intact): **35 passed**.
+
