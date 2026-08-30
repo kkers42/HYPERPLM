@@ -337,3 +337,35 @@ and confirmed it persisted and was flagged fastest for its session.
   guard, and `tests/test_ui_contract.py` gained a check for exactly that pattern.
 - Suite: **48 passed**.
 
+### Racing domain (Phase 3, step 10) — the workspace rebuilt as a real application
+
+The workspace had been the approved design *file* with hydration scripts bolted on. That
+approach only ever made live whatever was hand-patched, so most of the page stayed mock: the
+sidebar counts (`11 / 48 / 3 / 214`) were literal HTML, and "Championship P4", "1,847 fans",
+"Rd 5", the crew avatars, the stint log, the setup card headers and the Car &amp; Build page
+were invented. The engine was real; the dashboard was largely a painting with a few live
+gauges. Rebuilt `static/racing.html` so it renders entirely from the API.
+
+- **The approved CSS is preserved verbatim** — extracted from the design and re-used, so the
+  visual language is unchanged (rule 4: this is a rewrite of one view file, not the codebase,
+  and it was requested).
+- State lives in one object; `render()` redraws the active view from it. Every count, KPI,
+  table, chart and pill is derived from the database. **Zero hardcoded content** — enforced
+  by a new test that fails on literal sidebar counts or any of the invented strings.
+- **Real empty states everywhere.** No team, no sessions, no setups, no parts, no checklists,
+  no drivers — each says what it is and offers the action that fills it, instead of rendering
+  an empty grid that reads as broken.
+- The lap chart is drawn from actual laps (session-fastest in purple, PB in green), so it is
+  blank-with-a-prompt until laps exist rather than showing a fabricated season trend.
+- Full CRUD reachable from the UI: create team / car / driver / event / session / setup sheet
+  / setup value / checklist, log laps and part hours, clone a sheet as a revision, tick
+  sign-offs, and publish or withdraw teams, sessions and sheets.
+- A fan landing on the team workspace now gets an explanation and a link to the Fan Zone
+  instead of the raw "No organization for this account" API error.
+- Contract tests updated to assert on the **endpoints the controls call** rather than button
+  labels (labels are cosmetic; a missing endpoint is a missing feature), plus two new tests:
+  no hardcoded content, and every panel has an empty state.
+- Suite: **50 passed.** Verified in the browser against real data: sidebar 23/1/5/1/3, best
+  lap 1:39.512 (a lap logged through the UI), 4 sessions all published, checklist 5/6, and a
+  Fan Visibility panel showing 4/4 sessions and 0/1 setups published.
+

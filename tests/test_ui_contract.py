@@ -68,15 +68,40 @@ def test_no_backdrop_filter_on_fullscreen_overlays(client, path):
 # ── 4. the operating controls are actually present in the shipped markup ─────
 
 def test_racing_page_ships_its_controls(client):
+    """Assert on the endpoints the controls actually call, not on button labels —
+    labels are cosmetic and change; a missing endpoint is a missing feature."""
     body = client.get("/racing").text
     for needle, why in [
-        ("Log lap", "write action: log a lap"),
-        ("＋ Session", "write action: create a session"),
-        ("Publish sheet", "publish control: setup visibility"),
-        ("pk-team", "team switcher (workspace defaulted to an empty team without it)"),
-        ("pickTeam", "default to the team that has actually run"),
+        ('"/api/racing/laps"', "log a lap"),
+        ('"/api/racing/sessions"', "create a session"),
+        ('"/api/racing/setups"', "create a setup sheet"),
+        ("/visibility", "publish / unpublish controls"),
+        ("/public", "publish the team to the Fan Zone"),
+        ("pk-sel", "team switcher"),
+        ("localStorage", "remembering the selected team"),
     ]:
         assert needle in body, f"/racing is missing {why!r}"
+
+
+def test_racing_page_has_no_hardcoded_content(client):
+    """The page must render from the API. Literal counts and invented figures are
+    how it ended up looking like a mockup with a few live gauges."""
+    body = client.get("/racing").text
+    import re as _re
+    counts = _re.findall(r'<span class="cnt">\s*\d+\s*</span>', body)
+    assert not counts, f"hardcoded sidebar counts in the markup: {counts}"
+    for fake in ["1,847", "Crew on the timing stand", "Michelin · slick",
+                 "cross 50.4%", "Zanardi"]:
+        assert fake not in body, f"invented content still in /racing: {fake!r}"
+
+
+def test_racing_page_has_empty_states(client):
+    """Every panel must say what to do when it has no data — an empty grid reads
+    as broken."""
+    body = client.get("/racing").text
+    assert "empty" in body
+    for needle in ["No sessions yet", "No setup sheets", "No parts tracked", "No team yet"]:
+        assert needle in body, f"/racing has no empty state for {needle!r}"
 
 
 def test_paddock_page_ships_the_public_shell(client):
