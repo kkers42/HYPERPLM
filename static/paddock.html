@@ -1,5 +1,9 @@
-<title>Paddock Platform</title>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Paddock — where fans and teams come together</title>
 <style>
 :root{
   --bg:#EAECEF; --surface:#FFFFFF; --surface-2:#F4F6F8; --elevated:#FFFFFF;
@@ -257,791 +261,383 @@ td.num,th.num{text-align:right;font-family:var(--f-mono);font-variant-numeric:ta
   .statrow{grid-template-columns:repeat(2,1fr);gap:12px}
   .gstat{grid-template-columns:repeat(2,1fr)}
 }
+</style><style>
+.empty{padding:30px 20px;text-align:center;color:var(--dim);font-size:14px}
+.empty b{display:block;color:var(--text);font-family:var(--f-disp);font-size:16px;margin-bottom:6px}
+.empty .btn{margin-top:14px}
+.fz-ov{position:fixed;inset:0;background:rgba(4,8,11,.72);z-index:300;display:grid;place-items:center;padding:20px}
+.fz-md{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:min(430px,100%);overflow:hidden}
+.fz-md h3{font-size:16px;padding:16px 18px;border-bottom:1px solid var(--border);margin:0}
+.fz-bd{padding:16px 18px;display:flex;flex-direction:column;gap:11px}
+.fz-bd label{font-family:var(--f-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:5px}
+.fz-bd input{width:100%;font:inherit;font-size:14px;background:var(--surface-2);border:1px solid var(--border);
+  color:var(--text);border-radius:9px;padding:10px 12px}
+.fz-ft{display:flex;gap:9px;justify-content:space-between;align-items:center;padding:13px 18px;border-top:1px solid var(--border)}
+.fz-err{color:var(--red);font-size:12.5px;min-height:1em}
+.fz-link{background:none;border:0;color:var(--purple);font:inherit;font-size:12.5px;cursor:pointer;text-decoration:underline}
+.fz-pts{font-family:var(--f-mono);font-weight:700;color:var(--purple)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface);
+  border:1px solid var(--border);border-radius:11px;padding:11px 16px;box-shadow:var(--shadow);z-index:400;font-size:13px}
+.badge-chip{display:inline-flex;align-items:center;gap:7px;background:var(--purple-bg);color:var(--purple);
+  border-radius:20px;padding:5px 12px;font-size:12.5px;font-weight:600;margin:0 6px 6px 0}
+.badge-chip.locked{background:var(--surface-2);color:var(--faint);border:1px solid var(--border)}
 </style>
 
-<!-- ============================================================= WELCOME -->
-<div class="page show" id="p-welcome">
-  <nav class="nav">
-    <div class="wrap">
-      <a class="brand"><span class="flag"></span><span>Paddock<small>by HyperPLM</small></span></a>
-      <div class="navlinks"><a>For Teams</a><a>For Fans</a><a>Circuits</a><a>Pricing</a></div>
-      <div class="sp"></div>
-      <button class="theme-btn" onclick="toggleTheme()" aria-label="Theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg></button>
-      <a class="btn ghost" style="border:0" href="/login">Sign in</a>
-      <a class="btn primary" href="/login">Start free</a>
-    </div>
-  </nav>
-
-  <header class="hero">
-    <div class="wrap">
-      <div>
-        <div class="eyebrow">The one-stop shop for race teams</div>
-        <h1>Your whole season, <span class="em">on one pit wall.</span></h1>
-        <p class="lead">Setups, lap times, parts &amp; CAD, checklists and history — every byte your crew touches, in one place. Then hand fans the public slice and watch your following grow.</p>
-        <div class="cta">
-          <a class="btn primary lg" onclick="show('team')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13l2-5a3 3 0 0 1 3-2h8a3 3 0 0 1 3 2l2 5v4H3v-4Z"/><circle cx="7.5" cy="17" r="1.6"/><circle cx="16.5" cy="17" r="1.6"/></svg>I run a team</a>
-          <a class="btn lg" onclick="show('fan')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-4.4-9.2-8.6C1 9 2.5 5.5 6 5.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.5 0 5 3.5 3.2 6.9C19 16.6 12 21 12 21Z"/></svg>I'm a fan</a>
-        </div>
-        <div class="trust"><span class="pill neutral">Built on <b style="margin-left:4px">HyperPLM</b></span> · <b>IMSA</b> &amp; <b>IndyCar</b> circuits preloaded · your CAD vault, linked</div>
-      </div>
-      <div class="timing" aria-hidden="true">
-        <div class="th"><div class="eyebrow">Live timing · The Glen · FP2</div><div class="live"><i></i>LIVE</div></div>
-        <div class="trow me"><span class="pos">P3</span><span class="no">74</span><span class="nm">Meridian Autosport</span><span class="lap">1:42.104</span><span class="d g">PB</span></div>
-        <div class="trow"><span class="pos">P1</span><span class="no">9</span><span class="nm">Apex GT</span><span class="lap">1:41.760</span><span class="d p">FL</span></div>
-        <div class="trow"><span class="pos">P2</span><span class="no">23</span><span class="nm">Northline Racing</span><span class="lap">1:41.988</span><span class="d y">+.23</span></div>
-        <div class="trow"><span class="pos">P4</span><span class="no">57</span><span class="nm">Vanguard Motorsport</span><span class="lap">1:42.410</span><span class="d y">+.65</span></div>
-        <div class="trow"><span class="pos">P5</span><span class="no">11</span><span class="nm">Cardinal Racing</span><span class="lap">1:42.630</span><span class="d y">+.87</span></div>
-      </div>
-    </div>
-    <div class="wrap"><div class="checker"></div></div>
-  </header>
-
-  <section class="section">
-    <div class="wrap">
-      <div class="sec-head"><div class="eyebrow">One platform</div><h2>Everything the crew touches, in one place</h2><p>No more setup sheets in a truck binder, times in a spreadsheet, and CAD on a laptop. Paddock threads it together — and keeps your IP yours.</p></div>
-      <div class="grid features">
-        <div class="card feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg></div><h3>Setup sheets</h3><p>Corner weights, dampers, aero, tires — versioned, comparable, and tied to the session that ran them.</p><div class="tag"><span class="pill priv">Team only</span></div></div>
-        <div class="card feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5m0 14h16M4 19l5-6 4 3 6-8"/></svg></div><h3>Lap times &amp; trends</h3><p>Times v. date across practice, quali and race, with timing-tower colors your engineers already read.</p><div class="tag"><span class="pill pub">Public-ready</span></div></div>
-        <div class="card feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg></div><h3>Parts &amp; CAD</h3><p>Part numbers linked to their NX model &amp; revision. Life-limited components tracked to the hour.</p><div class="tag"><span class="pill priv">Team only</span></div></div>
-        <div class="card feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2"/></svg></div><h3>Checklists</h3><p>Reusable garage and pit procedures with name-and-time sign-offs. Templates travel between events.</p><div class="tag"><span class="pill neutral">Team</span></div></div>
-        <div class="card feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15c0-5 4-9 8-9s6 2 6 5-2 4-4 4-3-1-3-2 1-2 2-2"/></svg></div><h3>Track library</h3><p>Every IMSA &amp; IndyCar circuit preloaded — records, layouts and your own baseline per track.</p><div class="tag"><span class="pill pub">Public</span></div></div>
-        <div class="card feat"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-4.4-9.2-8.6C1 9 2.5 5.5 6 5.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.5 0 5 3.5 3.2 6.9"/></svg></div><h3>Fan layer</h3><p>Publish the safe slice. Fans follow, predict and earn — you get a measurable, ownable audience.</p><div class="tag"><span class="pill pub">Public</span></div></div>
-      </div>
-    </div>
-  </section>
-
-  <section class="section alt">
-    <div class="wrap">
-      <div class="grid split">
-        <div class="card l-team">
-          <h3><span class="pill team">Teams</span> Your IP stays yours</h3>
-          <p style="color:var(--dim);margin:12px 0 0">The garage is private by default. You decide, per data type, what ever leaves it.</p>
-          <ul>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Setups, telemetry, CAD &amp; strategy locked to your crew</li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Role-based access — engineers, mechanics, drivers, management</li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Full season history, searchable in seconds</li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>One thread: CAD rev → part → setup → lap time</li>
-          </ul>
-          <div style="margin-top:18px"><a class="btn team" onclick="show('team')">See a team page →</a></div>
-        </div>
-        <div class="card l-fan">
-          <h3><span class="pill priv">Fans</span> Feel like part of the crew</h3>
-          <p style="color:var(--dim);margin:12px 0 0">Fans get the public slice — enough to feel inside the garage, never enough to expose it.</p>
-          <ul>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Live lap times, sectors, results &amp; stint strategy</li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Follow favorite teams &amp; drivers, get every session</li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Predict, earn Paddock Points, climb the leaderboard</li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Badges, streaks &amp; Garage Pass perks from the team</li>
-          </ul>
-          <div style="margin-top:18px"><a class="btn" style="background:var(--purple);color:#fff;border-color:var(--purple)" onclick="show('fan')">See a fan page →</a></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="wrap">
-      <div class="sec-head"><div class="eyebrow">How it works</div><h2>Live before your next test day</h2></div>
-      <div class="grid steps">
-        <div class="card step"><div class="n">1</div><h3>Bring your data in</h3><p>Import setups, times and your NX vault. IMSA &amp; IndyCar circuits are already there.</p></div>
-        <div class="card step"><div class="n">2</div><h3>Set who sees what</h3><p>Add your crew with roles. Flip each data type Public or Team — private is the default.</p></div>
-        <div class="card step"><div class="n">3</div><h3>Publish &amp; grow</h3><p>Fans follow the public slice, predict and earn. You get an audience you own and can take to sponsors.</p></div>
-      </div>
-    </div>
-  </section>
-
-  <section class="section alt">
-    <div class="wrap">
-      <div class="stats">
-        <div class="stat"><div class="big">34</div><div class="lbl">IMSA &amp; IndyCar circuits preloaded</div></div>
-        <div class="stat"><div class="big">1</div><div class="lbl">place for setups, times &amp; CAD</div></div>
-        <div class="stat"><div class="big">100%</div><div class="lbl">of your IP stays private by default</div></div>
-        <div class="stat"><div class="big">∞</div><div class="lbl">season history, searchable</div></div>
-      </div>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="wrap">
-      <div class="cta-band">
-        <div class="eyebrow" style="color:var(--accent)">Ready when you are</div>
-        <h2>Put your season on one pit wall.</h2>
-        <p>Start free with one car and your crew. Add the fan layer whenever you're ready to grow a following.</p>
-        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-          <a class="btn primary lg">Start free</a>
-          <a class="btn lg" style="background:transparent;color:#fff;border-color:#33424C">Book a walkthrough</a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <footer><div class="wrap"><div><b class="mono" style="color:var(--text)">Paddock</b> · by HyperPLM · a one-stop shop for racing teams &amp; their fans</div><div>Privacy · Terms · Contact</div></div></footer>
+<style>
+/* Layout classes this page uses that the extracted design sheet did not define.
+   Same tokens, same visual language — just the pieces the Fan Zone needs. */
+.top{display:flex;align-items:center;gap:12px;height:62px;padding:0 22px;background:var(--surface);
+  border-bottom:1px solid var(--border);position:sticky;top:0;z-index:30;flex-wrap:nowrap}
+.top .sp{flex:1}
+.hero{padding:44px 22px 34px;background:radial-gradient(900px 340px at 72% -20%,
+  color-mix(in srgb,var(--accent) 13%,transparent),transparent 62%)}
+.hero .in{max-width:1140px;margin:0 auto}
+.hero h1{font-size:clamp(30px,4.4vw,46px);line-height:1.04}
+.hero h1 .em{color:var(--accent)}
+.hero p{color:var(--dim);font-size:17px;margin:16px 0 0;max-width:60ch}
+.wrap{max-width:1140px;margin:0 auto;padding:6px 22px 70px}
+.view{display:none}.view.on{display:block}
+.grid{display:grid;gap:14px}
+.grid.cards{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.grid.k2{grid-template-columns:1.5fr 1fr}
+.grid.k4{grid-template-columns:repeat(4,1fr)}
+.kpi .big{font-family:var(--f-mono);font-weight:700;font-size:26px;letter-spacing:-.02em;line-height:1}
+.kpi .sub{font-size:11.5px;color:var(--dim);margin-top:6px}
+.teamcard{padding:16px;cursor:pointer;transition:.15s}
+.teamcard:hover{border-color:var(--accent);transform:translateY(-2px)}
+.teamcard .row{display:flex;align-items:center;gap:12px}
+.teamcard h4{font-size:15px}
+.tcard{padding:14px 16px}
+.tcard h4{font-size:14px;margin-bottom:2px}
+.loc{font-size:11.5px;color:var(--dim)}
+.cl{font-size:12px;color:var(--dim)}
+.meta{display:flex;justify-content:space-between;margin-top:10px;padding-top:10px;
+  border-top:1px solid var(--border);font-size:11.5px;color:var(--dim)}
+.hint{font-size:12px;color:var(--faint)}
+.wall{display:flex;gap:12px;background:var(--purple-bg);border:1px solid color-mix(in srgb,var(--purple) 32%,transparent);
+  border-radius:12px;padding:13px 16px;font-size:13px;color:var(--dim);margin-bottom:14px}
+.wall b{color:var(--purple)}
+.back{cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;margin-bottom:12px;display:inline-block}
+.lead{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13.5px}
+.lead:last-child{border-bottom:0}
+.lead .r{font-family:var(--f-mono);font-weight:700;color:var(--faint);width:26px}
+.lead .pts{margin-left:auto;font-family:var(--f-mono);font-weight:700;color:var(--purple)}
+.tno{width:46px;height:46px;border-radius:11px;background:linear-gradient(135deg,#2b6cb0,#16324e);
+  color:#fff;display:grid;place-items:center;font-family:var(--f-disp);font-weight:800;font-size:19px;flex:none}
+.follow-btn{font:inherit;font-size:12.5px;font-weight:650;padding:8px 12px;border-radius:9px;cursor:pointer;
+  border:1px solid var(--border-strong);background:var(--surface);color:var(--text);width:100%}
+.follow-btn.on{background:var(--purple);color:#fff;border-color:var(--purple)}
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:13px 16px;border-bottom:1px solid var(--border)}
+.card-h h3{font-size:14px}
+.pad{padding:16px 18px}
+.tablewrap{overflow-x:auto}
+@media(max-width:900px){.grid.k2,.grid.k4{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="brand"><span class="flag"></span><span>The Paddock<small>by HYPERPLM</small></span></div>
+  <span class="pill ember">Fan Zone</span>
+  <div class="sp"></div>
+  <span id="who"></span>
+  <a class="btn" href="/racing">Team workspace</a>
 </div>
 
-<!-- ============================================================= COMPANY PAGE -->
-<div class="page" id="p-company">
-  <nav class="nav"><div class="wrap"><a class="brand" onclick="show('welcome')"><span class="flag"></span><span>Paddock<small>by HyperPLM</small></span></a><div class="sp"></div><span class="pill priv">Organization</span><a class="btn ghost" style="border:0" onclick="show('team')">A team page →</a><button class="theme-btn" onclick="toggleTheme()" aria-label="Theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg></button></div></nav>
-  <div class="cover" style="background:linear-gradient(120deg,#1b2a38,#0d1620)"><div class="stripe"></div></div>
-  <div class="wrap">
-    <div class="phead">
-      <div class="pav" style="background:linear-gradient(135deg,#31506a,#14212c);border-radius:20px">M</div>
-      <div class="id">
-        <h1>Meridian Motorsport Group <span class="pill priv">Company</span></h1>
-        <div class="sub"><span>📍 Charlotte, NC · HQ</span><span>Founded 2016</span><span>👥 64 staff</span><span>🏎 3 programs</span><span class="mono" style="color:var(--purple)">★ 3,900 followers</span></div>
-      </div>
-      <div class="actions"><button class="btn">Public page</button><button class="btn primary">Org settings</button></div>
-    </div>
+<div class="hero"><div class="in">
+  <div class="eyebrow">Public · no login required</div>
+  <h1>Where fans and teams <span class="em">come together.</span></h1>
+  <p>Follow real teams through a race weekend — published lap times, sessions and results.
+     The garage keeps its secrets; you get everything else.</p>
+  <div id="heroStats" style="margin-top:18px"></div>
+</div></div>
 
-    <div class="card pad" style="margin-top:20px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:var(--purple-bg);border-color:color-mix(in srgb,var(--purple) 22%,transparent)">
-      <div style="width:44px;height:44px;border-radius:12px;background:var(--purple);color:#fff;display:grid;place-items:center;font-weight:800;font-family:var(--f-disp)">⌂</div>
-      <div style="flex:1;min-width:220px"><b style="color:var(--purple)">The company sits above its teams.</b><div style="font-size:13px;color:var(--dim);margin-top:2px">One organization can field many cars, teams and series. Staff, the CAD vault and Garage Pass revenue roll up here; each program keeps its own private garage below.</div></div>
-      <span class="pill priv">Admin view</span>
-    </div>
-
-    <div class="tabs"><span class="tab on">Programs</span><span class="tab">Staff &amp; org</span><span class="tab">Fleet data</span><span class="tab">Commercial</span><span class="tab">Facilities</span></div>
-
-    <div class="grid gstat" style="margin-bottom:16px">
-      <div class="card gcard"><div class="big">3</div><div class="k">cars fielded</div></div>
-      <div class="card gcard"><div class="big">2</div><div class="k">series · IMSA + IndyCar</div></div>
-      <div class="card gcard"><div class="big">64</div><div class="k">staff across depts</div></div>
-      <div class="card gcard pts"><div class="big">$2,340</div><div class="k">Garage Pass MRR (co. share)</div></div>
-    </div>
-
-    <div class="grid col2" style="padding-bottom:90px">
-      <div class="grid" style="gap:16px">
-        <div class="card">
-          <div class="card-h"><h3>Programs &amp; teams</h3><button class="btn" style="padding:6px 12px;font-size:12.5px">+ New program</button></div>
-          <div class="pad grid" style="grid-template-columns:1fr 1fr;gap:14px">
-            <div class="tcard" style="border:1px solid var(--border);border-radius:12px" onclick="show('team')">
-              <div class="row"><div class="tno" style="background:var(--team)">74</div><div><h4>Meridian Autosport</h4><div class="cl">IMSA GTD · Mercedes-AMG GT3</div></div></div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--dim)"><span>Reyes / Novak</span><span class="mono">P4 · ★1,847</span></div>
-              <button class="follow-btn">Open workspace →</button>
-            </div>
-            <div class="tcard" style="border:1px solid var(--border);border-radius:12px">
-              <div class="row"><div class="tno" style="background:#5a6b78">75</div><div><h4>Meridian Autosport</h4><div class="cl">IMSA GTD · sister car</div></div></div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--dim)"><span>Hart / Diallo</span><span class="mono">P9 · ★980</span></div>
-              <button class="follow-btn">Open workspace →</button>
-            </div>
-            <div class="tcard" style="border:1px solid var(--border);border-radius:12px">
-              <div class="row"><div class="tno" style="background:#b23">07</div><div><h4>Meridian IndyCar</h4><div class="cl">NTT IndyCar · Dallara</div></div></div>
-              <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--dim)"><span>K. Brandt</span><span class="mono">P11 · ★1,073</span></div>
-              <button class="follow-btn">Open workspace →</button>
-            </div>
-            <div class="tcard" style="border:1px dashed var(--border-strong);border-radius:12px;justify-content:center;align-items:center;text-align:center;color:var(--dim)">
-              <div style="font-size:26px;line-height:1">+</div><div style="font-size:12.5px">Add a car / program</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-h"><h3>Fleet — life-limited parts across all cars</h3><span class="pill priv">Team only</span></div>
-          <div class="tablewrap"><table>
-            <thead><tr><th>Car</th><th>Part No.</th><th>Component</th><th class="num">Life</th><th>Status</th></tr></thead>
-            <tbody>
-              <tr><td class="mono">#74</td><td class="mono">74-DRV-0021</td><td>Right driveshaft</td><td class="num">95%</td><td><span class="pill warn" style="color:var(--red);background:var(--red-bg)">Replace</span></td></tr>
-              <tr><td class="mono">#75</td><td class="mono">75-ENG-0002</td><td>Engine (sealed)</td><td class="num">88%</td><td><span class="pill warn">Soon</span></td></tr>
-              <tr><td class="mono">#07</td><td class="mono">07-GBX-0110</td><td>Gearbox cluster</td><td class="num">61%</td><td><span class="pill pub">OK</span></td></tr>
-              <tr><td class="mono">#74</td><td class="mono">74-SUS-0114</td><td>LF upright bearing</td><td class="num">84%</td><td><span class="pill warn">Soon</span></td></tr>
-            </tbody>
-          </table></div>
-        </div>
-
-        <div class="card">
-          <div class="card-h"><h3>Company activity</h3></div>
-          <div class="feed">
-            <div class="fitem"><div class="fi tm"><span class="mono" style="font-weight:800">75</span></div><div><b>#75 crew added — Priya Hart set as Race Engineer.</b><div class="t">1h ago · role: full access</div></div></div>
-            <div class="fitem"><div class="fi pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12 2 15 9l7 .5-5.5 4.5L18 21l-6-3.8L6 21l1.5-7L2 9.5 9 9z"/></svg></div><div><b>Garage Pass revenue up 12% this month across programs.</b><div class="t">Today · commercial</div></div></div>
-            <div class="fitem"><div class="fi tm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="3"/></svg></div><div><b>Shared CAD part <span class="mono">MG-BRK-0308</span> released to #74 &amp; #75.</b><div class="t">Yesterday · vault</div></div></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="grid" style="gap:16px">
-        <div class="card">
-          <div class="card-h"><h3>Leadership</h3></div>
-          <div class="pad people" style="flex-direction:column">
-            <div class="person"><div class="pa">EM</div><div><b>Elena Marsh</b><span>Team Principal · org admin</span></div></div>
-            <div class="person"><div class="pa">RP</div><div><b>Raj Patel</b><span>Technical Director</span></div></div>
-            <div class="person"><div class="pa">SO</div><div><b>Sam O'Neil</b><span>Commercial Director</span></div></div>
-          </div>
-        </div>
-        <div class="card pad">
-          <div class="eyebrow" style="color:var(--faint);margin-bottom:12px">Headcount by department</div>
-          <div style="display:flex;flex-direction:column;gap:9px">
-            <div><div style="display:flex;justify-content:space-between;font-size:12.5px"><span>Mechanics</span><b class="mono">22</b></div><div class="levelbar" style="margin-top:4px"><i style="width:100%;background:var(--team)"></i></div></div>
-            <div><div style="display:flex;justify-content:space-between;font-size:12.5px"><span>Engineering</span><b class="mono">18</b></div><div class="levelbar" style="margin-top:4px"><i style="width:82%;background:var(--team)"></i></div></div>
-            <div><div style="display:flex;justify-content:space-between;font-size:12.5px"><span>Logistics</span><b class="mono">8</b></div><div class="levelbar" style="margin-top:4px"><i style="width:37%;background:var(--team)"></i></div></div>
-            <div><div style="display:flex;justify-content:space-between;font-size:12.5px"><span>Data</span><b class="mono">6</b></div><div class="levelbar" style="margin-top:4px"><i style="width:28%;background:var(--team)"></i></div></div>
-            <div><div style="display:flex;justify-content:space-between;font-size:12.5px"><span>Commercial + Mgmt</span><b class="mono">10</b></div><div class="levelbar" style="margin-top:4px"><i style="width:45%;background:var(--team)"></i></div></div>
-          </div>
-        </div>
-        <div class="card pad">
-          <div class="eyebrow" style="color:var(--faint);margin-bottom:10px">Garage Pass — revenue share</div>
-          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--border)"><span style="color:var(--dim)">Passholders (all programs)</span><b class="mono">1,120</b></div>
-          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--border)"><span style="color:var(--dim)">Gross MRR</span><b class="mono">$6,720</b></div>
-          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--border)"><span style="color:var(--dim)">Company share (65%)</span><b class="mono" style="color:var(--purple)">$4,368</b></div>
-          <div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:var(--dim)">Platform fee (35%)</span><b class="mono">$2,352</b></div>
-          <p class="hint" style="font-size:11.5px;color:var(--faint);margin:10px 0 0">Teams promote, fans subscribe, the company earns — an audience it owns and can take to sponsors.</p>
-        </div>
-        <div class="card pad">
-          <div class="eyebrow" style="color:var(--faint);margin-bottom:10px">Facilities</div>
-          <div class="person" style="margin-bottom:8px"><div class="pa" style="background:var(--team)">HQ</div><div><b>Charlotte HQ</b><span>Shop · 7-post rig · sim</span></div></div>
-          <div class="person"><div class="pa" style="background:#5a6b78">IN</div><div><b>Indianapolis satellite</b><span>IndyCar program base</span></div></div>
-        </div>
-        <div class="card pad">
-          <div class="eyebrow" style="color:var(--faint);margin-bottom:10px">Company partners</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <span class="pill neutral" style="padding:6px 12px">HyperPLM</span><span class="pill neutral" style="padding:6px 12px">Michelin</span><span class="pill neutral" style="padding:6px 12px">Bosch</span><span class="pill neutral" style="padding:6px 12px">Gulf</span><span class="pill neutral" style="padding:6px 12px">Sparco</span>
-          </div>
-        </div>
-      </div>
-    </div>
+<div class="wrap">
+  <div class="tabs">
+    <div class="tab on" data-v="teams">Teams</div>
+    <div class="tab" data-v="board">Fastest laps</div>
+    <div class="tab" data-v="circuits">Circuits</div>
+    <div class="tab" data-v="me">My Paddock</div>
+    <div class="tab" data-v="about">What fans get</div>
   </div>
+  <section class="view on" id="v-teams"></section>
+  <section class="view" id="v-board"></section>
+  <section class="view" id="v-circuits"></section>
+  <section class="view" id="v-me"></section>
+  <section class="view" id="v-about"></section>
 </div>
-
-<!-- ============================================================= TEAM PAGE -->
-<div class="page" id="p-team">
-  <nav class="nav"><div class="wrap"><a class="brand" onclick="show('welcome')"><span class="flag"></span><span>Paddock<small>by HyperPLM</small></span></a><div class="sp"></div><span class="pill pub">Public team page</span><a class="btn ghost" style="border:0" onclick="show('fan')">My fan home</a><button class="theme-btn" onclick="toggleTheme()" aria-label="Theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg></button></div></nav>
-  <div class="cover team-cover"><div class="no-badge">74</div><div class="stripe"></div></div>
-  <div class="wrap">
-    <div class="phead">
-      <div class="pav team-av">MA</div>
-      <div class="id">
-        <h1>Meridian Autosport <span class="pill neutral">GTD</span></h1>
-        <div class="sub"><span>📍 Charlotte, NC</span><span>🏁 IMSA WeatherTech · #74</span><span>🚗 Mercedes-AMG GT3</span><span class="mono" style="color:var(--purple)">★ 1,847 followers</span></div>
-      </div>
-      <div class="actions">
-        <button class="follow-btn on" style="width:auto;padding:10px 18px;font-size:14px" id="teamFollow" onclick="tf()">✓ Following</button>
-        <button class="btn" style="background:var(--purple);color:#fff;border-color:var(--purple)">🏁 Garage Pass</button>
-      </div>
-    </div>
-
-    <div class="tabs"><span class="tab on">Overview</span><span class="tab">Results</span><span class="tab">Lap Times</span><span class="tab">Crew</span><span class="tab">About</span></div>
-
-    <div class="grid col2" style="padding-bottom:80px">
-      <div class="grid" style="gap:16px">
-        <div class="card">
-          <div class="card-h"><h3>Latest result — Rd 4 · Mid-Ohio</h3><span class="pill pub">Public</span></div>
-          <div class="pad" style="display:flex;gap:22px;align-items:center;flex-wrap:wrap">
-            <div style="text-align:center"><div class="mono" style="font-size:42px;font-weight:800;color:var(--accent);letter-spacing:-.03em">P2</div><div style="font-size:12px;color:var(--dim)">GTD finish</div></div>
-            <div style="flex:1;min-width:200px">
-              <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--border)"><span style="color:var(--dim)">Started</span><b class="mono">P4</b></div>
-              <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed var(--border)"><span style="color:var(--dim)">Best lap</span><b class="mono pb">1:22.740</b></div>
-              <div style="display:flex;justify-content:space-between;padding:5px 0"><span style="color:var(--dim)">Drivers</span><b>Reyes / Novak</b></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-h"><h3>Public best-lap trend · 2025</h3><span class="pill pub">Public</span></div>
-          <div class="pad" id="teamChart"></div>
-        </div>
-
-        <div class="card">
-          <div class="card-h"><h3>Recent updates</h3><span class="eyebrow" style="color:var(--faint)">team-published</span></div>
-          <div class="feed">
-            <div class="fitem"><div class="fi pub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M4 19V5m0 14h16M4 19l5-6 4 3 6-8"/></svg></div><div><b>New personal best at The Glen — 1:41.208 in qualifying.</b><div class="t">2h ago · 214 fans reacted</div></div></div>
-            <div class="fitem"><div class="fi tm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M5 12h14M12 5v14"/></svg></div><div><b>Crew radio: "Box this lap, we're going long on the mediums."</b><div class="t">Yesterday · cleared clip · 1:12</div></div></div>
-            <div class="fitem"><div class="fi pub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M20 6 9 17l-5-5"/></svg></div><div><b>P2 at Mid-Ohio! Second podium of the season.</b><div class="t">3 days ago · 480 fans reacted</div></div></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="grid" style="gap:16px">
-        <div class="card pad">
-          <div class="eyebrow" style="color:var(--faint);margin-bottom:12px">Championship</div>
-          <div class="statrow" style="grid-template-columns:1fr 1fr">
-            <div class="s"><div class="v">P4</div><div class="k">GTD standings</div></div>
-            <div class="s"><div class="v">1,204</div><div class="k">points</div></div>
-            <div class="s"><div class="v">2</div><div class="k">podiums</div></div>
-            <div class="s"><div class="v">1</div><div class="k">pole</div></div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-h"><h3>Drivers</h3></div>
-          <div class="pad people" style="flex-direction:column">
-            <div class="person"><div class="pa">DR</div><div><b>Dan Reyes</b><span>#74 · USA · 12 yr GT</span></div></div>
-            <div class="person"><div class="pa">TN</div><div><b>Tomas Novak</b><span>#74 · CZE · Le Mans class win</span></div></div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-h"><h3>Next event</h3><span class="pill ember">Rd 5</span></div>
-          <div class="pad"><b style="font-size:16px">Six Hours of The Glen</b><div style="color:var(--dim);font-size:13px;margin-top:4px">Watkins Glen Int'l · Aug 24</div><div class="levelbar" style="margin-top:12px"><i style="width:70%;background:var(--accent)"></i></div><div style="font-size:12px;color:var(--faint);margin-top:6px">Qualifying done · P3 on grid</div></div>
-        </div>
-        <div class="card pad">
-          <div class="eyebrow" style="color:var(--faint);margin-bottom:10px">Partners</div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <span class="pill neutral" style="font-size:12px;padding:6px 12px">HyperPLM</span><span class="pill neutral" style="font-size:12px;padding:6px 12px">Michelin</span><span class="pill neutral" style="font-size:12px;padding:6px 12px">Bosch</span><span class="pill neutral" style="font-size:12px;padding:6px 12px">Sparco</span>
-          </div>
-        </div>
-        <div class="card pad" style="background:var(--purple-bg);border-color:color-mix(in srgb,var(--purple) 25%,transparent)">
-          <b style="color:var(--purple)">🔒 What's private</b>
-          <p style="font-size:12.5px;color:var(--dim);margin:6px 0 0">Setups, telemetry, CAD &amp; live strategy never appear here. This page is the slice Meridian chose to make public.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ============================================================= USER PROFILE -->
-<div class="page" id="p-profile">
-  <nav class="nav"><div class="wrap"><a class="brand" onclick="show('welcome')"><span class="flag"></span><span>Paddock<small>by HyperPLM</small></span></a><div class="sp"></div><span class="pill team">Team member</span><button class="theme-btn" onclick="toggleTheme()" aria-label="Theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg></button></div></nav>
-  <div class="cover" style="background:linear-gradient(120deg,#334756,#18232c)"><div class="stripe"></div></div>
-  <div class="wrap">
-    <div class="phead">
-      <div class="pav round">DR</div>
-      <div class="id">
-        <h1>Dan Reyes</h1>
-        <div class="sub">
-          <span class="pill ember">Race Engineer</span>
-          <span class="assoc"><span class="mini">74</span>Meridian Autosport</span>
-          <span>📍 Charlotte, NC</span><span>Member since 2023</span>
-        </div>
-      </div>
-      <div class="actions"><button class="btn">Message</button><button class="btn primary">Edit profile</button></div>
-    </div>
-
-    <div class="card pad" style="margin-top:20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;background:var(--team-bg);border-color:color-mix(in srgb,var(--team) 25%,transparent)">
-      <div style="width:44px;height:44px;border-radius:12px;background:var(--team);color:#fff;display:grid;place-items:center;font-weight:800;font-family:var(--f-disp);font-size:18px">74</div>
-      <div style="flex:1;min-width:200px"><b style="color:var(--team)">Associated with Meridian Autosport</b><div style="font-size:13px;color:var(--dim);margin-top:2px">Every user in Paddock is associated — to a team, or as a spectator. Dan's role gives him <b>full garage access</b> for the #74.</div></div>
-      <span class="pill team">Full access · #74</span>
-    </div>
-
-    <div class="tabs"><span class="tab on">Activity</span><span class="tab">Contributions</span><span class="tab">Access</span></div>
-
-    <div class="grid col2" style="padding-bottom:80px">
-      <div class="grid" style="gap:16px">
-        <div class="card pad">
-          <div class="eyebrow" style="color:var(--faint);margin-bottom:14px">Season contributions</div>
-          <div class="statrow">
-            <div class="s"><div class="v">48</div><div class="k">setups authored</div></div>
-            <div class="s"><div class="v">11</div><div class="k">events worked</div></div>
-            <div class="s"><div class="v">126</div><div class="k">checklists signed</div></div>
-            <div class="s"><div class="v">312</div><div class="k">data uploads</div></div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-h"><h3>Recent activity</h3></div>
-          <div class="feed">
-            <div class="fitem"><div class="fi tm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M4 6h16M4 12h16M4 18h16"/></svg></div><div><b>Authored setup <span class="mono">WG-2025-Q</span> — Watkins Glen qualifying.</b><div class="t">2h ago · #74</div></div></div>
-            <div class="fitem"><div class="fi pub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12 16V4m0 0L8 8m4-4 4 4"/></svg></div><div><b>Uploaded FP2 long-run times (published to fans).</b><div class="t">4h ago · #74</div></div></div>
-            <div class="fitem"><div class="fi tm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M20 6 9 17l-5-5"/></svg></div><div><b>Signed off "Pre-qualifying" checklist (6/9 complete).</b><div class="t">6h ago · #74</div></div></div>
-            <div class="fitem"><div class="fi tm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="3"/></svg></div><div><b>Flagged part <span class="mono">74-DRV-0021</span> for replacement (over life).</b><div class="t">Yesterday · Parts &amp; CAD</div></div></div>
-          </div>
-        </div>
-      </div>
-      <div class="grid" style="gap:16px">
-        <div class="card">
-          <div class="card-h"><h3>Role &amp; access</h3></div>
-          <div class="pad">
-            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed var(--border)"><span style="color:var(--dim)">Setups</span><span class="pill team">Read / write</span></div>
-            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed var(--border)"><span style="color:var(--dim)">Parts &amp; CAD</span><span class="pill team">Read / write</span></div>
-            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed var(--border)"><span style="color:var(--dim)">Publish to fans</span><span class="pill pub">Allowed</span></div>
-            <div style="display:flex;justify-content:space-between;padding:8px 0"><span style="color:var(--dim)">Team admin</span><span class="pill neutral">No</span></div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-h"><h3>Crewmates</h3></div>
-          <div class="pad people" style="flex-direction:column">
-            <div class="person"><div class="pa">MK</div><div><b>Mike Kessler</b><span>Crew Chief</span></div></div>
-            <div class="person"><div class="pa">TS</div><div><b>Tara Singh</b><span>Data Engineer</span></div></div>
-            <div class="person"><div class="pa">TN</div><div><b>Tomas Novak</b><span>Driver</span></div></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ============================================================= FAN PAGE -->
-<div class="page" id="p-fan">
-  <nav class="nav"><div class="wrap"><a class="brand" onclick="show('welcome')"><span class="flag"></span><span>Paddock<small>by HyperPLM</small></span></a><div class="sp"></div><span class="pill priv">Fan home</span><a class="btn ghost" style="border:0" onclick="show('team')">Browse teams</a><button class="theme-btn" onclick="toggleTheme()" aria-label="Theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg></button></div></nav>
-  <div class="cover" style="background:linear-gradient(120deg,#3a2560,#1a1030)"><div class="stripe"></div></div>
-  <div class="wrap">
-    <div class="phead">
-      <div class="pav round" style="background:linear-gradient(135deg,#7a3fd0,#3a1d6b)">JC</div>
-      <div class="id">
-        <h1>Jordan Cole</h1>
-        <div class="sub">
-          <span class="assoc" style="background:var(--purple-bg);color:var(--purple)"><span class="mini" style="background:var(--purple)">◐</span>Spectator</span>
-          <span>Following 5 teams</span><span class="mono" style="color:var(--purple)">Level 7 · Pit Crew</span><span>🔥 12-session streak</span>
-        </div>
-      </div>
-      <div class="actions"><button class="btn" style="background:var(--purple);color:#fff;border-color:var(--purple)">🏁 Get Garage Pass</button></div>
-    </div>
-
-    <div class="card pad" style="margin-top:20px;background:var(--purple-bg);border-color:color-mix(in srgb,var(--purple) 22%,transparent);display:flex;gap:14px;align-items:center;flex-wrap:wrap">
-      <div style="width:40px;height:40px;border-radius:11px;background:var(--purple);color:#fff;display:grid;place-items:center">◐</div>
-      <div style="flex:1;min-width:220px;font-size:13px;color:var(--dim)"><b style="color:var(--purple)">You're a spectator — associated, not on a team.</b> Follow teams to fill your feed, predict sessions to earn points, and unlock crew perks. Join a team? Your page becomes a member profile.</div>
-    </div>
-
-    <div class="tabs"><span class="tab on">My paddock</span><span class="tab">Predictions</span><span class="tab">Following</span><span class="tab">Badges</span></div>
-
-    <div class="grid gstat" style="margin-bottom:16px">
-      <div class="card gcard pts"><div class="big">4,820</div><div class="k">Paddock Points</div></div>
-      <div class="card gcard rank"><div class="big">#38</div><div class="k">Meridian fan rank</div></div>
-      <div class="card gcard streak"><div class="big">12</div><div class="k">session streak 🔥</div></div>
-      <div class="card gcard"><div class="big">73%</div><div class="k">prediction accuracy</div></div>
-    </div>
-
-    <div class="grid col2" style="padding-bottom:90px">
-      <div class="grid" style="gap:16px">
-        <div class="card">
-          <div class="card-h"><h3>Predict the session — live now</h3><span class="pill priv">+150 pts</span></div>
-          <div class="pad predict">
-            <div class="pq"><h4>Where does #74 qualify at The Glen?</h4><div class="opts"><button class="opt" onclick="pick(this)">P1–P3</button><button class="opt sel" onclick="pick(this)">P4–P6</button><button class="opt" onclick="pick(this)">P7–P10</button><button class="opt" onclick="pick(this)">P11+</button></div></div>
-            <div class="pq"><h4>First team to pit in the 6-hour?</h4><div class="opts"><button class="opt" onclick="pick(this)">#9 Apex</button><button class="opt" onclick="pick(this)">#74 Meridian</button><button class="opt" onclick="pick(this)">#23 Northline</button><button class="opt" onclick="pick(this)">Other</button></div></div>
-            <div style="display:flex;justify-content:flex-end"><button class="btn" style="background:var(--purple);color:#fff;border-color:var(--purple)">Lock in picks</button></div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-h"><h3>From teams you follow</h3><span class="pill pub">Public feed</span></div>
-          <div class="feed">
-            <div class="fitem"><div class="fi tm"><span class="mono" style="font-weight:800">74</span></div><div><b>Meridian Autosport — new PB at The Glen, 1:41.208 in qualifying.</b><div class="t">2h ago · you predicted P4–P6 ✓</div></div></div>
-            <div class="fitem"><div class="fi pt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12 2 15 9l7 .5-5.5 4.5L18 21l-6-3.8L6 21l1.5-7L2 9.5 9 9z"/></svg></div><div><b>You earned <b class="mono" style="color:var(--purple)">+80 pts</b> — correct call on Mid-Ohio podium.</b><div class="t">3 days ago</div></div></div>
-            <div class="fitem"><div class="fi tm"><span class="mono" style="font-weight:800">9</span></div><div><b>Apex GT posted the fastest lap of FP2 — 1:41.760.</b><div class="t">4h ago · public</div></div></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="grid" style="gap:16px">
-        <div class="card pad">
-          <div class="eyebrow" style="color:var(--faint);margin-bottom:6px">Level 7 · Pit Crew</div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--dim)"><span>4,820 pts</span><span>Level 8 at 5,500</span></div>
-          <div class="levelbar"><i style="width:73%"></i></div>
-        </div>
-
-        <div class="card">
-          <div class="card-h"><h3>Teams you follow</h3></div>
-          <div class="pad grid followcards" style="grid-template-columns:1fr 1fr">
-            <div class="tcard" style="border:1px solid var(--border);border-radius:12px"><div class="row"><div class="tno" style="background:var(--team)">74</div><div><h4>Meridian</h4><div class="cl">GTD</div></div></div><button class="follow-btn on" onclick="pick(this)">✓ Following</button></div>
-            <div class="tcard" style="border:1px solid var(--border);border-radius:12px"><div class="row"><div class="tno" style="background:#b23">9</div><div><h4>Apex GT</h4><div class="cl">GTD</div></div></div><button class="follow-btn on" onclick="pick(this)">✓ Following</button></div>
-            <div class="tcard" style="border:1px solid var(--border);border-radius:12px"><div class="row"><div class="tno" style="background:#2a7">23</div><div><h4>Northline</h4><div class="cl">GTP</div></div></div><button class="follow-btn on" onclick="pick(this)">✓ Following</button></div>
-            <div class="tcard" style="border:1px solid var(--border);border-radius:12px"><div class="row"><div class="tno" style="background:#555">+</div><div><h4>Find more</h4><div class="cl">browse</div></div></div><button class="follow-btn" onclick="show('team')">Browse teams</button></div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-h"><h3>Meridian fan leaderboard</h3></div>
-          <div class="pad">
-            <div class="lead-row"><span class="r">1</span><span class="pa">RB</span><span>RaceBrain_Ry</span><span class="pts" style="color:var(--purple)">9,240</span></div>
-            <div class="lead-row"><span class="r">2</span><span class="pa">GT</span><span>GlenGrandstand</span><span class="pts" style="color:var(--purple)">7,880</span></div>
-            <div class="lead-row"><span class="r">3</span><span class="pa">MK</span><span>MediumsOnly</span><span class="pts" style="color:var(--purple)">6,410</span></div>
-            <div class="lead-row me"><span class="r">38</span><span class="pa" style="background:var(--purple)">JC</span><span><b>You</b></span><span class="pts" style="color:var(--purple)">4,820</span></div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-h"><h3>Badges</h3><span class="eyebrow" style="color:var(--faint)">9 / 24</span></div>
-          <div class="pad badges">
-            <div class="badge earned"><div class="b">🏁</div><span>First Follow</span></div>
-            <div class="badge earned"><div class="b">🎯</div><span>10 correct calls</span></div>
-            <div class="badge earned"><div class="b">🔥</div><span>10-session streak</span></div>
-            <div class="badge earned"><div class="b">🌙</div><span>Full endurance race</span></div>
-            <div class="badge lock"><div class="b">🏆</div><span>Fan of the Race</span></div>
-            <div class="badge lock"><div class="b">⚡</div><span>Called a record</span></div>
-          </div>
-        </div>
-
-        <div class="card pad upsell">
-          <b style="color:var(--purple)">🏁 Garage Pass</b>
-          <p style="font-size:13px;color:var(--dim);margin:6px 0 12px">Unlock stint predictions, historical trends, a shout-out wall and Fan-of-the-Race eligibility. Your team shares the revenue.</p>
-          <button class="btn" style="background:var(--purple);color:#fff;border-color:var(--purple);width:100%;justify-content:center">Upgrade — $6 / mo</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- floating prototype switcher -->
-<div class="switcher" role="tablist" aria-label="Prototype pages">
-  <span class="lbl">Pages</span>
-  <button class="on" id="sw-welcome" onclick="show('welcome')">Welcome</button>
-  <button id="sw-company" onclick="show('company')">Company</button>
-  <button id="sw-team" onclick="show('team')">Team</button>
-  <button id="sw-profile" onclick="show('profile')">Profile</button>
-  <button id="sw-fan" onclick="show('fan')">Fan</button>
-</div>
-
 <script>
-function show(p){
-  document.querySelectorAll('.page').forEach(el=>el.classList.remove('show'));
-  document.getElementById('p-'+p).classList.add('show');
-  document.querySelectorAll('.switcher button').forEach(b=>b.classList.remove('on'));
-  document.getElementById('sw-'+p).classList.add('on');
-  window.scrollTo({top:0,behavior:'auto'});
+/* ══ The Paddock — Fan Zone ═════════════════════════════════════════════════
+   Public by default. Everything is rendered from /api/public/* (anonymous) and
+   /api/fan/* (signed-in fans). No invented teams, laps or follower counts. */
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt=ms=>ms==null?"—":`${Math.floor(ms/60000)}:${((ms%60000)/1000).toFixed(3).padStart(6,"0")}`;
+const dt=s=>s?new Date(s).toLocaleDateString(undefined,{month:"short",day:"numeric"}):"—";
+
+async function api(p,method="GET",body){
+  const o={method,credentials:"same-origin",headers:{}};
+  if(body!==undefined){o.headers["Content-Type"]="application/json";o.body=JSON.stringify(body);}
+  const r=await fetch(p,o);
+  if(!r.ok){let d="";try{d=(await r.json()).detail||""}catch(e){}throw new Error(d||`HTTP ${r.status}`);}
+  return r.status===204?null:r.json();
 }
-function toggleTheme(){var r=document.documentElement;var c=r.getAttribute('data-theme');
-  if(!c)c=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
-  r.setAttribute('data-theme',c==='dark'?'light':'dark');}
-function pick(b){var on=b.classList.toggle('sel');b.classList.toggle('on');
-  if(b.parentElement&&b.parentElement.classList.contains('opts')){[...b.parentElement.children].forEach(x=>{if(x!==b){x.classList.remove('sel')}});b.classList.add('sel');}}
-function tf(){var b=document.getElementById('teamFollow');var on=b.classList.toggle('on');b.textContent=on?'✓ Following':'+ Follow';}
+function toast(m){const t=document.createElement("div");t.className="toast";t.textContent=m;
+  document.body.appendChild(t);setTimeout(()=>t.remove(),3000);}
 
-/* mini chart for team page (public best-lap trend, seconds off record) */
-(function(){
-  var el=document.getElementById('teamChart'); if(!el)return;
-  var pts=[{y:2.1,t:"Day"},{y:1.7,t:"Seb"},{y:1.9,t:"LB"},{y:1.4,t:"Lag"},{y:1.2,t:"Mid"},{y:0.9,t:"Glen"}];
-  var W=560,H=190,pl=40,pr=12,pt=14,pb=26,ymin=0.5,ymax=2.4;
-  var X=i=>pl+(W-pl-pr)*(i/(pts.length-1)), Y=v=>pt+(H-pt-pb)*(1-(v-ymin)/(ymax-ymin));
-  var grid='';for(var r=0;r<=4;r++){var yy=pt+(H-pt-pb)*r/4,val=ymax-(ymax-ymin)*r/4;
-    grid+='<line x1="'+pl+'" y1="'+yy+'" x2="'+(W-pr)+'" y2="'+yy+'" stroke="var(--border)"/>'+
-    '<text x="'+(pl-7)+'" y="'+(yy+3)+'" text-anchor="end" font-size="9" fill="var(--faint)" font-family="var(--f-mono)">'+val.toFixed(1)+'</text>';}
-  var line='',area='';pts.forEach((p,i)=>{var x=X(i),y=Y(p.y);line+=(i?'L':'M')+x+','+y+' ';area+=(i?'L':'M')+x+','+y+' ';});
-  area+='L'+X(pts.length-1)+','+(H-pb)+' L'+X(0)+','+(H-pb)+' Z';
-  var dots=pts.map((p,i)=>{var x=X(i),y=Y(p.y),big=i===pts.length-1;return '<circle cx="'+x+'" cy="'+y+'" r="'+(big?4.5:3)+'" fill="'+(big?'var(--purple)':'var(--team)')+'" stroke="var(--surface)" stroke-width="2"/>'+(big?'<text x="'+x+'" y="'+(y-9)+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--purple)" font-family="var(--f-mono)">1:41.2</text>':'');}).join('');
-  var xl=pts.map((p,i)=>'<text x="'+X(i)+'" y="'+(H-8)+'" text-anchor="middle" font-size="9" fill="var(--faint)" font-family="var(--f-mono)">'+p.t+'</text>').join('');
-  el.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto"><defs><linearGradient id="tg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--team)" stop-opacity=".22"/><stop offset="1" stop-color="var(--team)" stop-opacity="0"/></linearGradient></defs>'+grid+'<path d="'+area+'" fill="url(#tg)"/><path d="'+line+'" fill="none" stroke="var(--team)" stroke-width="2.5" stroke-linejoin="round"/>'+dots+xl+'</svg>';
-})();
-</script>
-<script>
-/* ── LIVE DATA (public) ─────────────────────────────────────────────────────
-   Design unchanged; the Team and Fan pages read /api/public/* (no auth). */
-(function(){
-  const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
-  const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-  const fmt=ms=>ms==null?"—":`${Math.floor(ms/60000)}:${((ms%60000)/1000).toFixed(3).padStart(6,"0")}`;
-  const api=async p=>{const r=await fetch(p); if(!r.ok) throw new Error(p); return r.json();};
+const ST={me:null,teams:[],tracks:[],board:[],stats:null,leaders:[],
+          view:"teams",team:null,following:new Set()};
 
-  async function boot(){
-    let teams=[]; try{ teams=await api("/api/public/teams"); }catch(e){ return; }
-    if(!teams.length) return;
-    const t0=teams[0];
-    let d=null; try{ d=await api("/api/public/teams/"+encodeURIComponent(t0.slug)); }catch(e){}
+async function loadAll(){
+  const [teams,tracks,board,stats,leaders,me]=await Promise.all([
+    api("/api/public/teams").catch(()=>[]),
+    api("/api/public/tracks").catch(()=>[]),
+    api("/api/public/laps").catch(()=>[]),
+    api("/api/public/stats").catch(()=>null),
+    api("/api/public/leaderboard").catch(()=>[]),
+    api("/api/fan/me").catch(()=>null)]);
+  ST.teams=teams; ST.tracks=tracks; ST.board=board; ST.stats=stats;
+  ST.leaders=leaders; ST.me=me;
+  ST.following=new Set((me?.following||[]).map(t=>t.slug));
+}
+async function refresh(){ await loadAll(); render(); }
 
-    // ── Team page header
-    const ph=$("#p-team .phead");
-    if(ph&&d){
-      const h1=ph.querySelector("h1");
-      if(h1) h1.innerHTML=`${esc(d.team.name)} <span class="pill neutral">${esc(d.team.class||d.team.series)}</span>`;
-      const sub=ph.querySelector(".sub");
-      if(sub) sub.innerHTML=`<span>🏁 ${esc(d.team.series)} · #${esc(d.team.car_number)}</span>
-        <span>Drivers: ${d.drivers.map(x=>esc(x.name)).join(", ")||"—"}</span>
-        <span class="mono" style="color:var(--purple)">${d.public_laps.length} public laps</span>`;
-      const badge=$("#p-team .cover .no-badge"); if(badge) badge.textContent=d.team.car_number;
-      const av=$("#p-team .pav"); if(av) av.textContent=(d.team.name||"").split(" ").map(w=>w[0]).slice(0,2).join("");
-    }
-
-    // ── Latest result card → real best lap
-    if(d){
-      const big=$("#p-team .pad .mono[style*='42px']");
-      if(big){ big.textContent=fmt(d.best_lap_ms); big.style.fontSize="30px"; }
-      const rows=$$("#p-team .pad div[style*='space-between']");
-      if(rows[0]) rows[0].innerHTML=`<span style="color:var(--dim)">Sessions</span><b class="mono">${d.sessions.length}</b>`;
-      if(rows[1]) rows[1].innerHTML=`<span style="color:var(--dim)">Best lap</span><b class="mono pb">${fmt(d.best_lap_ms)}</b>`;
-      if(rows[2]) rows[2].innerHTML=`<span style="color:var(--dim)">Drivers</span><b>${d.drivers.map(x=>esc(x.name)).join(" / ")||"—"}</b>`;
-      // feed → real laps
-      const feed=$("#p-team .feed");
-      if(feed) feed.innerHTML=d.public_laps.slice(0,4).map(l=>`<div class="fitem">
-        <div class="fi pub"><span class="mono" style="font-weight:800">${l.is_fastest?"★":"•"}</span></div>
-        <div><b>${esc(l.session_type.toUpperCase())} — ${fmt(l.lap_time_ms)} at ${esc(l.track)}</b>
-        <div class="t">${esc(l.driver||"")} · lap ${l.lap_no} · ${esc(l.tire_compound||"")}</div></div></div>`).join("")
-        || `<div class="fitem"><div>No published laps yet.</div></div>`;
-      // drivers list
-      const people=$("#p-team .people");
-      if(people) people.innerHTML=d.drivers.map(x=>`<div class="person">
-        <div class="pa">${esc((x.name||"").split(" ").map(w=>w[0]).slice(0,2).join(""))}</div>
-        <div><b>${esc(x.name)}</b><span>${esc(x.country||"")}</span></div></div>`).join("")||"<div class='hint'>—</div>";
-    }
-
-    // ── Fan page: real teams to follow
-    const fc=$("#p-fan .followcards");
-    if(fc) fc.innerHTML=teams.map(t=>`<div class="tcard" style="border:1px solid var(--border);border-radius:12px">
-      <div class="row"><div class="tno" style="background:var(--team)">${esc(t.car_number)}</div>
-      <div><h4>${esc(t.name).slice(0,14)}</h4><div class="cl">${esc(t.class||t.series)}</div></div></div>
-      <button class="follow-btn" data-slug="${esc(t.slug)}">+ Follow</button></div>`).join("");
-
-    // ── Fan leaderboard (real)
+/* ── auth ──────────────────────────────────────────────────────────────── */
+function authModal(mode){
+  const signup=mode==="signup";
+  const ov=document.createElement("div"); ov.className="fz-ov";
+  ov.innerHTML=`<div class="fz-md"><h3>${signup?"Create a fan account":"Sign in"}</h3>
+    <div class="fz-bd">
+      <div><label>Username</label><input name="username" autocomplete="username"></div>
+      ${signup?'<div><label>Display name</label><input name="display_name" placeholder="shown on the leaderboard"></div>':""}
+      <div><label>Password</label><input name="password" type="password"
+        autocomplete="${signup?"new-password":"current-password"}"></div>
+      <div class="fz-err"></div></div>
+    <div class="fz-ft">
+      <button class="fz-link" data-swap>${signup?"I already have an account":"Create an account instead"}</button>
+      <span><button class="btn" data-x>Cancel</button>
+      <button class="btn primary" data-ok>${signup?"Create":"Sign in"}</button></span>
+    </div></div>`;
+  document.body.appendChild(ov);
+  const close=()=>ov.remove();
+  ov.querySelector("[data-x]").onclick=close; ov.onclick=e=>{if(e.target===ov)close();};
+  ov.querySelector("[data-swap]").onclick=()=>{close();authModal(signup?"signin":"signup");};
+  ov.querySelector("[data-ok]").onclick=async()=>{
+    const v={}; $$("input",ov).forEach(i=>v[i.name]=i.value);
+    const b=ov.querySelector("[data-ok]"); b.disabled=true;
     try{
-      const lb=await api("/api/public/leaderboard");
-      const box=$$("#p-fan .card .pad").find(el=>el.querySelector(".lead-row"));
-      if(box&&lb.length) box.innerHTML=lb.map((x,i)=>`<div class="lead-row">
-        <span class="r">${i+1}</span><span class="pa">${esc((x.display_name||"F")[0])}</span>
-        <span>${esc(x.display_name||"Anonymous fan")}</span>
-        <span class="pts" style="color:var(--purple)">${x.points}</span></div>`).join("");
-    }catch(e){}
+      if(signup) await api("/api/fan/register","POST",
+        {username:v.username,password:v.password,display_name:v.display_name||v.username});
+      else await api("/api/fan/login","POST",{username:v.username,password:v.password});
+      close(); await refresh(); toast(signup?"Welcome to the Paddock":"Signed in");
+    }catch(e){ ov.querySelector(".fz-err").textContent=e.message; b.disabled=false; }
+  };
+  ov.querySelector("input").focus();
+}
+async function signOut(){
+  try{ await fetch("/auth/logout",{method:"POST",credentials:"same-origin"}); }catch(e){}
+  document.cookie="plm_session=; Max-Age=0; path=/"; await refresh(); toast("Signed out");
+}
+async function toggleFollow(slug){
+  if(!ST.me) return authModal("signup");
+  try{
+    if(ST.following.has(slug)){ await api(`/api/fan/follow/${encodeURIComponent(slug)}`,"DELETE");
+      toast("Unfollowed"); }
+    else { const r=await api(`/api/fan/follow/${encodeURIComponent(slug)}`,"POST");
+      toast(r.first_follow?"Followed — +50 points and your first badge":"Followed — +10 points"); }
+    await refresh();
+  }catch(e){ toast(e.message); }
+}
 
-    // ── Company page: real programs
-    try{
-      const grid=$("#p-company .grid[style*='1fr 1fr']");
-      if(grid) grid.innerHTML=teams.map(t=>`<div class="tcard" style="border:1px solid var(--border);border-radius:12px">
-        <div class="row"><div class="tno" style="background:var(--team)">${esc(t.car_number)}</div>
-        <div><h4>${esc(t.name)}</h4><div class="cl">${esc(t.series)} · ${esc(t.class)}</div></div></div>
-        <button class="follow-btn" onclick="location.href='/racing'">Open workspace →</button></div>`).join("");
-    }catch(e){}
-
-    // real links out
-    $$("#p-welcome .btn.primary").forEach(b=>{ if(/start free/i.test(b.textContent)) b.onclick=()=>location.href="/login"; });
+/* ── chrome ────────────────────────────────────────────────────────────── */
+function renderChrome(){
+  const w=$("#who"); w.innerHTML="";
+  if(ST.me){
+    w.innerHTML=`<span style="font-size:13px">${esc(ST.me.profile.display_name||"Fan")}</span>
+      <span class="fz-pts" style="margin:0 10px">${ST.me.profile.points} pts</span>
+      <button class="btn" onclick="signOut()">Sign out</button>`;
+  }else{
+    w.innerHTML=`<button class="btn" onclick="authModal('signin')">Sign in</button>
+      <button class="btn primary" style="margin-left:8px" onclick="authModal('signup')">Join as a fan</button>`;
   }
-  if(document.readyState!=="loading") boot(); else addEventListener("DOMContentLoaded",boot);
+  const s=ST.stats;
+  $("#heroStats").innerHTML = s ? `<div style="display:flex;gap:20px;flex-wrap:wrap;font-size:13px;color:var(--dim)">
+      <span><b class="mono" style="color:var(--accent);font-size:17px">${s.published_teams}</b> team${s.published_teams===1?"":"s"} published</span>
+      <span><b class="mono" style="color:var(--accent);font-size:17px">${s.circuits}</b> circuits</span>
+      <span><b class="mono" style="color:var(--accent);font-size:17px">${s.fans}</b> fan${s.fans===1?"":"s"}</span>
+      <span><b class="mono" style="color:var(--accent);font-size:17px">${s.follows}</b> follow${s.follows===1?"":"s"}</span>
+    </div>` : "";
+}
+
+/* ── views ─────────────────────────────────────────────────────────────── */
+function followBtn(slug){
+  const on=ST.following.has(slug);
+  return `<button class="follow-btn${on?" on":""}" onclick="event.stopPropagation();toggleFollow('${esc(slug)}')">
+    ${on?"✓ Following":"+ Follow"}</button>`;
+}
+
+function viewTeams(){
+  if(ST.team) return teamDetail();
+  if(!ST.teams.length) return `<div class="card"><div class="empty">
+    <b>No teams have published yet</b>
+    A team appears here once it switches itself to public in the workspace.
+    Published lap times and sessions then show up on its page.</div></div>`;
+  return `<p class="hint" style="margin:0 0 14px">${ST.teams.length} team${ST.teams.length===1?"":"s"} publishing to fans.</p>
+    <div class="grid cards">${ST.teams.map(t=>`<div class="card teamcard" onclick="openTeam('${esc(t.slug)}')">
+      <div class="row"><div class="tno">${esc(t.car_number||"—")}</div>
+        <div><h4>${esc(t.name)}</h4><div class="cl">${esc([t.series,t.class].filter(Boolean).join(" · ")||"—")}</div></div></div>
+      <div style="margin-top:12px">${followBtn(t.slug)}</div></div>`).join("")}</div>`;
+}
+
+function teamDetail(){
+  const d=ST.team;
+  const kpi=(k,v,s,c)=>`<div class="card pad kpi"><div class="eyebrow" style="color:var(--faint)">${esc(k)}</div>
+    <div class="big"${c?` style="color:${c}"`:""}>${v}</div><div class="sub">${esc(s)}</div></div>`;
+  return `<span class="back" onclick="closeTeam()">← All teams</span>
+    <div class="card pad" style="margin-bottom:14px;display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+      <div class="tno" style="width:58px;height:58px;font-size:23px">${esc(d.team.car_number||"—")}</div>
+      <div style="flex:1;min-width:200px">
+        <h2 style="font-size:22px">${esc(d.team.name)}</h2>
+        <div class="hint" style="margin-top:3px">${esc([d.team.series,d.team.class].filter(Boolean).join(" · ")||"—")}
+          ${d.drivers.length?" · Drivers: "+d.drivers.map(x=>esc(x.name)).join(", "):""}</div></div>
+      ${followBtn(d.team.slug)}</div>
+    <div class="grid k4" style="margin-bottom:14px">
+      ${kpi("Best published lap",fmt(d.best_lap_ms),"across public sessions","var(--purple)")}
+      ${kpi("Sessions",d.sessions.length,"published")}
+      ${kpi("Laps shared",d.public_laps.length,"lap times")}
+      ${kpi("Setup sheets",(d.setups||[]).length,(d.setups||[]).length?"shared by the team":"kept in the garage")}</div>
+    <div class="wall">🔒 <div><b>You're seeing the public slice.</b> Setup sheets, telemetry and CAD stay in the
+      garage. This team has published ${(d.setups||[]).length} setup sheet${(d.setups||[]).length===1?"":"s"}.</div></div>
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-h"><h3>Published lap times</h3><span class="pill pub">Public</span></div>
+      ${d.public_laps.length?`<div class="tablewrap"><table>
+        <thead><tr><th>Session</th><th>Driver</th><th>Track</th><th class="num">Lap</th><th class="num">Time</th><th>Tire</th></tr></thead>
+        <tbody>${d.public_laps.map(l=>`<tr>
+          <td class="mono" style="text-transform:uppercase">${esc(l.session_type)}</td>
+          <td>${esc(l.driver||"—")}</td><td>${esc(l.track)}</td>
+          <td class="num">${l.lap_no}</td>
+          <td class="num ${l.is_fastest?"fastest":(l.is_pb?"pb":"")}">${fmt(l.lap_time_ms)}</td>
+          <td>${esc(l.tire_compound||"—")}</td></tr>`).join("")}</tbody></table></div>`
+      :`<div class="empty">This team hasn't published any lap times yet.</div>`}</div>
+    <div class="card"><div class="card-h"><h3>Session log</h3><span class="pill pub">Public</span></div>
+      ${d.sessions.length?`<div class="tablewrap"><table>
+        <thead><tr><th>Session</th><th>Event</th><th>Track</th><th class="num">Laps</th><th class="num">Best</th></tr></thead>
+        <tbody>${d.sessions.map(s=>`<tr><td class="mono" style="text-transform:uppercase">${esc(s.session_type)}</td>
+          <td>${esc(s.event)}</td><td>${esc(s.track)}</td>
+          <td class="num">${s.lap_count}</td><td class="num">${fmt(s.best_ms)}</td></tr>`).join("")}</tbody></table></div>`
+      :`<div class="empty">No published sessions yet.</div>`}</div>`;
+}
+
+function viewBoard(){
+  if(!ST.board.length) return `<div class="card"><div class="empty">
+    <b>No published laps yet</b>Once a team publishes a session, its fastest laps appear here.</div></div>`;
+  return `<p class="hint" style="margin:0 0 14px">Fastest published laps across every team.</p>
+    <div class="card"><div class="card-h"><h3>Fastest laps</h3><span class="pill pub">Public</span></div>
+    <div class="tablewrap"><table>
+      <thead><tr><th class="num">#</th><th>Team</th><th>Driver</th><th>Track</th><th>Session</th><th class="num">Time</th></tr></thead>
+      <tbody>${ST.board.map((l,i)=>`<tr style="cursor:pointer" onclick="openTeam('${esc(l.slug)}')">
+        <td class="num" style="color:var(--faint)">${i+1}</td>
+        <td><b class="mono">${esc(l.car_number)}</b> ${esc(l.team)}</td>
+        <td>${esc(l.driver||"—")}</td><td>${esc(l.track)}</td>
+        <td class="mono" style="text-transform:uppercase">${esc(l.session_type)}</td>
+        <td class="num ${i===0?"fastest":""}">${fmt(l.lap_time_ms)}</td></tr>`).join("")}
+      </tbody></table></div></div>`;
+}
+
+function viewCircuits(){
+  if(!ST.tracks.length) return `<div class="card"><div class="empty"><b>No circuits</b>The library is empty.</div></div>`;
+  return `<p class="hint" style="margin:0 0 14px">Every circuit on the IMSA &amp; IndyCar calendars.</p>
+    <div class="grid cards">${ST.tracks.map(t=>`<div class="card tcard">
+      <h4>${esc(t.name)}</h4><div class="loc">${esc(t.location||"")}</div>
+      <div class="meta"><span>${t.length_km?t.length_km.toFixed(3)+" km":"—"} · ${t.turns??"—"} turns</span>
+        <span class="pill neutral">${esc(t.layout)}</span></div>
+      <div class="hint" style="margin-top:6px">${esc(t.series_tag||"")}</div></div>`).join("")}</div>`;
+}
+
+function viewMe(){
+  if(!ST.me) return `<div class="card"><div class="empty">
+    <b>Join the Paddock</b>Follow teams, earn Paddock Points for showing up, and collect badges.
+    <div><button class="btn primary" onclick="authModal('signup')">Create a fan account</button>
+    <button class="btn" style="margin-left:8px" onclick="authModal('signin')">Sign in</button></div></div></div>`;
+  const m=ST.me;
+  const kpi=(k,v,s,c)=>`<div class="card pad kpi"><div class="eyebrow" style="color:var(--faint)">${esc(k)}</div>
+    <div class="big"${c?` style="color:${c}"`:""}>${v}</div><div class="sub">${esc(s)}</div></div>`;
+  return `<div class="grid k4" style="margin-bottom:14px">
+      ${kpi("Paddock Points",m.profile.points,"earned so far","var(--purple)")}
+      ${kpi("Following",m.following.length,"team"+(m.following.length===1?"":"s"))}
+      ${kpi("Badges",m.badges_earned.length+" / "+m.badges_available.length,"unlocked")}
+      ${kpi("Account",m.is_member?"Member":"Spectator",m.is_member?"also on a team":"fan account")}</div>
+    <div class="grid k2">
+      <div class="card"><div class="card-h"><h3>Teams you follow</h3></div>
+        ${m.following.length?`<div class="pad grid cards" style="grid-template-columns:1fr 1fr">
+          ${m.following.map(t=>`<div class="card tcard" style="cursor:pointer" onclick="openTeam('${esc(t.slug)}')">
+            <div class="row"><div class="tno" style="width:38px;height:38px;font-size:15px">${esc(t.car_number)}</div>
+            <div><h4 style="font-size:13.5px">${esc(t.name)}</h4><div class="cl">${esc(t.class||t.series||"")}</div></div></div>
+            <div style="margin-top:10px">${followBtn(t.slug)}</div></div>`).join("")}</div>`
+        :`<div class="empty">You're not following anyone yet.
+          <div><button class="btn primary" onclick="go('teams')">Browse teams</button></div></div>`}</div>
+      <div class="card"><div class="card-h"><h3>Badges</h3>
+        <span class="eyebrow" style="color:var(--faint)">${m.badges_earned.length} / ${m.badges_available.length}</span></div>
+        <div class="pad">${m.badges_available.map(b=>`<span class="badge-chip${b.earned?"":" locked"}"
+          title="${esc(b.description)}">${b.earned?"★":"☆"} ${esc(b.name)}</span>`).join("")}
+          ${m.recent_points.length?`<div class="eyebrow" style="color:var(--faint);margin:16px 0 8px">Recent points</div>
+            ${m.recent_points.map(p=>`<div class="lead"><span class="fz-pts">+${p.delta}</span>
+              <span style="color:var(--dim)">${esc(p.reason)}</span></div>`).join("")}`:""}</div></div></div>
+    <div class="card" style="margin-top:14px"><div class="card-h"><h3>Fan leaderboard</h3></div>
+      <div class="pad">${ST.leaders.length?ST.leaders.map((x,i)=>`<div class="lead">
+        <span class="r">${i+1}</span><span>${esc(x.display_name||"Anonymous fan")}</span>
+        <span class="pts">${x.points}</span></div>`).join(""):'<div class="hint">No fans ranked yet.</div>'}</div></div>`;
+}
+
+function viewAbout(){
+  return `<div class="grid k2">
+    <div class="card pad"><span class="pill pub" style="margin-bottom:10px">Fans always see</span>
+      <div style="line-height:2.1;color:var(--dim);font-size:14px">
+        ✓ Published lap times and sectors<br>✓ Session logs and results<br>
+        ✓ Tire compound per lap<br>✓ Drivers and team identity<br>
+        ✓ The circuit library<br>✓ Anything a team chooses to publish</div></div>
+    <div class="card pad"><span class="pill neutral" style="margin-bottom:10px;color:var(--purple)">🔒 Never leaves the garage</span>
+      <div style="line-height:2.1;color:var(--dim);font-size:14px">
+        🔒 Setup sheets and corner weights<br>🔒 Damper and telemetry files<br>
+        🔒 CAD parts, revisions and specs<br>🔒 Checklists and garage procedures<br>
+        🔒 Engineer notes</div>
+      <p class="hint" style="margin:12px 0 0">Private by default. A team publishes per item —
+        one switch for the team, one per session, one per setup sheet.</p></div></div>
+    <div class="card pad" style="margin-top:14px">
+      <div class="eyebrow" style="color:var(--faint);margin-bottom:8px">How points work</div>
+      <p class="hint" style="line-height:1.7;margin:0">Following your first team earns 50 Paddock Points and the
+      <b style="color:var(--purple)">First Follow</b> badge; each team after that earns 10. Points are a running
+      ledger — unfollowing never takes them back. More ways to earn (predicting sessions, streaks) are on the way.</p></div>`;
+}
+
+/* ── team detail ───────────────────────────────────────────────────────── */
+async function openTeam(slug){
+  try{
+    const [d,setups]=await Promise.all([
+      api(`/api/public/teams/${encodeURIComponent(slug)}`),
+      api(`/api/public/teams/${encodeURIComponent(slug)}/setups`).catch(()=>[])]);
+    d.setups=setups; ST.team=d; ST.view="teams"; render(); window.scrollTo({top:0});
+  }catch(e){ toast(e.message); }
+}
+function closeTeam(){ ST.team=null; render(); }
+
+/* ── render ────────────────────────────────────────────────────────────── */
+const VIEWS={teams:viewTeams,board:viewBoard,circuits:viewCircuits,me:viewMe,about:viewAbout};
+function render(){
+  renderChrome();
+  const el=$("#v-"+ST.view); if(el) el.innerHTML=VIEWS[ST.view]();
+  $$(".view").forEach(v=>v.classList.toggle("on",v.id==="v-"+ST.view));
+  $$(".tab").forEach(t=>t.classList.toggle("on",t.dataset.v===ST.view));
+}
+function go(v){ ST.team=null; ST.view=v; render(); window.scrollTo({top:0}); }
+$$(".tab").forEach(t=>t.onclick=()=>go(t.dataset.v));
+
+(async function(){
+  try{ await loadAll(); render(); }
+  catch(e){ $("#v-teams").innerHTML=`<div class="card"><div class="empty">
+    <b>Could not load</b>${esc(e.message)}
+    <div><button class="btn" onclick="location.reload()">Try again</button></div></div></div>`; }
 })();
 </script>
-<script>
-/* ── FAN ACCOUNTS (issue #6) ────────────────────────────────────────────────
-   Sign up / sign in as a spectator and follow published teams. A fan has no
-   organization, so this talks only to /api/fan/* and /api/public/* — never the
-   tenant API. */
-(function(){
-  const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
-  const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-  async function api(p,method="GET",body){
-    const o={method,credentials:"same-origin",headers:{}};
-    if(body!==undefined){o.headers["Content-Type"]="application/json";o.body=JSON.stringify(body);}
-    const r=await fetch(p,o);
-    if(!r.ok){let d="";try{d=(await r.json()).detail||""}catch(e){}
-      throw new Error(d||`HTTP ${r.status}`);}
-    return r.status===204?null:r.json();
-  }
-
-  const css=document.createElement("style");
-  css.textContent=`
-  .fz-ov{position:fixed;inset:0;background:rgba(4,8,11,.72);z-index:300;display:grid;place-items:center;padding:20px}
-  .fz-md{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:min(420px,100%);overflow:hidden}
-  .fz-md h3{font-size:16px;padding:16px 18px;border-bottom:1px solid var(--border);margin:0}
-  .fz-bd{padding:16px 18px;display:flex;flex-direction:column;gap:11px}
-  .fz-bd label{font-family:var(--f-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:5px}
-  .fz-bd input{width:100%;font:inherit;font-size:14px;background:var(--surface-2);border:1px solid var(--border);
-    color:var(--text);border-radius:9px;padding:10px 12px}
-  .fz-ft{display:flex;gap:9px;justify-content:space-between;align-items:center;padding:13px 18px;border-top:1px solid var(--border)}
-  .fz-err{color:var(--red);font-size:12.5px;min-height:1em}
-  .fz-link{background:none;border:0;color:var(--purple);font:inherit;font-size:12.5px;cursor:pointer;text-decoration:underline}
-  .fz-who{display:flex;align-items:center;gap:8px;font-size:13px}
-  .fz-pts{font-family:var(--f-mono);font-weight:700;color:var(--purple)}`;
-  document.head.appendChild(css);
-
-  let ME=null;
-
-  function authModal(mode){
-    const signup = mode==="signup";
-    const ov=document.createElement("div"); ov.className="fz-ov";
-    ov.innerHTML=`<div class="fz-md">
-      <h3>${signup?"Create a fan account":"Sign in"}</h3>
-      <div class="fz-bd">
-        <div><label>Username</label><input name="username" autocomplete="username"></div>
-        ${signup?'<div><label>Display name</label><input name="display_name" placeholder="shown on the leaderboard"></div>':""}
-        <div><label>Password</label><input name="password" type="password" autocomplete="${signup?"new-password":"current-password"}"></div>
-        <div class="fz-err"></div>
-      </div>
-      <div class="fz-ft">
-        <button class="fz-link" data-swap>${signup?"I already have an account":"Create an account instead"}</button>
-        <span><button class="btn" data-x>Cancel</button>
-        <button class="btn primary" data-ok>${signup?"Create":"Sign in"}</button></span>
-      </div></div>`;
-    document.body.appendChild(ov);
-    const close=()=>ov.remove();
-    ov.querySelector("[data-x]").onclick=close;
-    ov.onclick=e=>{if(e.target===ov)close();};
-    ov.querySelector("[data-swap]").onclick=()=>{close();authModal(signup?"signin":"signup");};
-    ov.querySelector("[data-ok]").onclick=async()=>{
-      const v={}; $$("input",ov).forEach(i=>v[i.name]=i.value);
-      const btn=ov.querySelector("[data-ok]"); btn.disabled=true;
-      try{
-        if(signup) await api("/api/fan/register","POST",
-          {username:v.username,password:v.password,display_name:v.display_name||v.username});
-        else await api("/api/fan/login","POST",{username:v.username,password:v.password});
-        location.reload();
-      }catch(e){ ov.querySelector(".fz-err").textContent=e.message; btn.disabled=false; }
-    };
-    ov.querySelector("input").focus();
-  }
-
-  async function boot(){
-    try{ ME=await api("/api/fan/me"); }catch(e){ ME=null; }
-    const bar=$(".nav .wrap");
-
-    // header: who you are, or the way in
-    if(bar){
-      const old=$(".fz-who",bar); if(old) old.remove();
-      // the design ships static Sign in / Start free links — make them real
-      $$("a.btn", bar).forEach(a=>{
-        const t=(a.textContent||"").toLowerCase();
-        if(t.includes("sign in")){ a.removeAttribute("href"); a.style.cursor="pointer";
-          a.onclick=e=>{e.preventDefault();authModal("signin");}; }
-        if(t.includes("start free")){ a.removeAttribute("href"); a.style.cursor="pointer";
-          a.textContent="Join as a fan";
-          a.onclick=e=>{e.preventDefault();authModal("signup");}; }
-      });
-      const el=document.createElement("span"); el.className="fz-who";
-      if(ME){
-        el.innerHTML=`<span>${esc(ME.profile.display_name||"Fan")}</span>
-          <span class="fz-pts">${ME.profile.points} pts</span>
-          <button class="btn" data-out>Sign out</button>`;
-        $$("a.btn", bar).forEach(a=>{ const t=(a.textContent||"").toLowerCase();
-          if(t.includes("sign in")||t.includes("join as a fan")) a.style.display="none"; });
-        bar.appendChild(el);
-        el.querySelector("[data-out]").onclick=async()=>{
-          try{ await fetch("/auth/logout",{method:"POST",credentials:"same-origin"}); }catch(e){}
-          document.cookie="plm_session=; Max-Age=0; path=/"; location.reload();
-        };
-      }
-    }
-
-    const followed = new Set((ME?.following||[]).map(t=>t.slug));
-
-    // team cards -> real follow buttons
-    async function toggle(slug,btn){
-      if(!ME) return authModal("signup");
-      btn.disabled=true;
-      try{
-        if(followed.has(slug)){ await api(`/api/fan/follow/${encodeURIComponent(slug)}`,"DELETE"); }
-        else { await api(`/api/fan/follow/${encodeURIComponent(slug)}`,"POST"); }
-        location.reload();
-      }catch(e){ btn.disabled=false; btn.textContent="Try again"; }
-    }
-
-    let painting=false;
-    function paint(){
-      if(painting) return;
-      painting=true;                       // paint() mutates the DOM; without this
-      try{                                 // the observer below re-entered forever
-        $$("[data-slug]").forEach(b=>{
-          const on=followed.has(b.dataset.slug);
-          const want = b.closest("#teamdetail") ? (on?"✓ Following":"★ Follow")
-                                                : (on?"✓ Following":"+ Follow");
-          // only write when it actually changes — assigning the same text is
-          // still a mutation and would keep the observer firing
-          if(b.textContent!==want) b.textContent=want;
-          if(b.classList.contains("on")!==on) b.classList.toggle("on",on);
-        });
-      } finally { painting=false; }
-    }
-    paint();
-    document.addEventListener("click",e=>{
-      const b=e.target.closest?.("[data-slug]");
-      if(!b || !/Follow|Following/.test(b.textContent||"")) return;
-      e.preventDefault(); e.stopPropagation();
-      toggle(b.dataset.slug,b);
-    },true);
-    // the team detail pane is rendered later; repaint when it appears
-    // repaint when the team-detail pane is rendered, coalesced to a frame so a
-    // paint can never re-enter the observer synchronously
-    let queued=false;
-    new MutationObserver(()=>{ if(queued)return; queued=true;
-      requestAnimationFrame(()=>{ queued=false; paint(); }); })
-      .observe(document.body,{childList:true,subtree:true});
-
-    // remember the team list so the detail Follow can resolve a slug
-    try{ window.__fanTeams=await (await fetch("/api/public/teams")).json(); }catch(e){}
-
-    // "My paddock" summary if signed in
-    if(ME){
-      const lead=$("#v-leaderboard .card .pad")||$("#leadlist");
-      const box=$("#p-fan")||null;
-      const host=$("#v-about")||null;
-      const note=document.createElement("div");
-      note.className="card pad";
-      note.style.marginTop="14px";
-      note.innerHTML=`<div class="eyebrow" style="color:var(--faint);margin-bottom:8px">Your paddock</div>
-        <div style="font-size:14px;line-height:1.9;color:var(--dim)">
-          Following <b style="color:var(--text)">${ME.following.length}</b> team${ME.following.length===1?"":"s"} ·
-          <span class="fz-pts">${ME.profile.points} Paddock Points</span> ·
-          <b style="color:var(--text)">${ME.badges_earned.length}</b> badge${ME.badges_earned.length===1?"":"s"}
-          ${ME.badges_earned.length?"<br>"+ME.badges_earned.map(b=>esc(b.name)).join(" · "):""}
-        </div>`;
-      (host||document.querySelector(".wrap"))?.appendChild(note);
-    }
-  }
-  if(document.readyState!=="loading") boot(); else addEventListener("DOMContentLoaded",boot);
-})();
-</script>
+</body>
+</html>

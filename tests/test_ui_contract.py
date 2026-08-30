@@ -132,7 +132,7 @@ def test_paddock_ships_fan_account_controls(client):
         ("/api/fan/register", "fan signup"),
         ("/api/fan/follow/", "follow / unfollow"),
         ("/api/fan/me", "the fan's own profile"),
-        ("data-slug", "follow buttons must carry the team slug they act on"),
+        ("toggleFollow", "a follow control bound to a team slug"),
     ]:
         assert needle in body, f"/paddock is missing {why!r}"
 
@@ -150,4 +150,30 @@ def test_mutation_observers_are_guarded(client):
         assert ("requestAnimationFrame" in body or "painting" in body), (
             f"{path} uses MutationObserver with no coalescing/re-entrancy guard; "
             "a repaint inside the callback re-triggers the observer forever")
+
+
+def test_paddock_has_no_invented_content(client):
+    """The Fan Zone must show real published teams — not demo teams that do not
+    exist in the database."""
+    body = client.get("/paddock").text
+    for fake in ["Apex GT", "Northline", "Vanguard Motorsport", "Cardinal Racing",
+                 "1,847", "3,900"]:
+        assert fake not in body, f"invented content still in /paddock: {fake!r}"
+
+
+def test_paddock_has_empty_states(client):
+    body = client.get("/paddock").text
+    for needle in ["No teams have published yet", "No published laps yet",
+                   "Join the Paddock"]:
+        assert needle in body, f"/paddock has no empty state for {needle!r}"
+
+
+def test_public_board_and_stats_are_anonymous(client):
+    """The landing figures must come from the database, with no session."""
+    for path in ["/api/public/laps", "/api/public/stats"]:
+        r = client.get(path)
+        assert r.status_code == 200, f"{path} must be anonymous"
+    stats = client.get("/api/public/stats").json()
+    for key in ["published_teams", "circuits", "fans", "follows"]:
+        assert key in stats, f"/api/public/stats missing {key}"
 

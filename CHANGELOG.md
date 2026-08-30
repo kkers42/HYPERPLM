@@ -369,3 +369,33 @@ gauges. Rebuilt `static/racing.html` so it renders entirely from the API.
   lap 1:39.512 (a lap logged through the UI), 4 sessions all published, checklist 5/6, and a
   Fan Visibility panel showing 4/4 sessions and 0/1 setups published.
 
+### Racing domain (Phase 3, step 11) — the Fan Zone rebuilt as a real application
+
+`/paddock` had the same problem `/racing` did: it was the design file with a few panels
+hydrated, so the Welcome, Company and Profile pages still showed invented teams (Apex GT,
+Northline, Vanguard, Cardinal — none exist), a fabricated live-timing board and a made-up
+follower count. Rebuilt so every figure comes from the database.
+
+- Two new anonymous endpoints so the public page needs no N+1 fetching from the browser:
+  `GET /api/public/laps` (fastest published laps across every published team) and
+  `GET /api/public/stats` (teams published, circuits, fans, follows). `/laps` resolves each
+  team inside **its own tenant session** — there is still no cross-tenant query anywhere.
+- The page is now the Fan Zone proper: **Teams** (browse and follow), **Fastest laps**
+  (the public board), **Circuits**, **My Paddock** (points, badges, follows, ledger,
+  leaderboard) and **What fans get** (the public/private split, which is explanatory copy
+  rather than fabricated data).
+- Real empty states throughout: no teams published, no laps published, not signed in, not
+  following anyone. A team with no data shows zeros, not invented statistics.
+- Contract tests extended: `/paddock` must contain none of the invented strings, must ship
+  its empty states, and the new public endpoints must answer anonymously.
+- Fixed while verifying in the browser: the rebuilt markup used class names from the racing
+  design against the paddock stylesheet, so the layout collapsed. The missing layout rules
+  were added using the same design tokens.
+- **Infrastructure conflict resolved.** Another session had repointed `atlas.hyperplm` at a
+  pinned production **mirror** on :4101, which left this in-development build (:4100)
+  unreachable by name — and briefly made `/paddock` 404 through nginx. Rather than take the
+  hostname back, the dev build now has its own: **http://atlas.paddock** (nginx vhost
+  `atlas-paddock`, dnsmasq entry, `hyperplm.atlas` kept as an alias). `atlas.hyperplm`
+  is left as the production mirror.
+- Suite: **53 passed.**
+
