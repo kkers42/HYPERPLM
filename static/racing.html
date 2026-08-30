@@ -348,7 +348,7 @@ function notice(title,msg){confirmModal(title,msg,async()=>{},"OK");}
 
 /* ── state ─────────────────────────────────────────────────────────────── */
 const ST={me:null,teams:[],team:null,tracks:[],sessions:[],laps:[],setups:[],
-          checklists:[],parts:[],published:new Set(),view:"overview"};
+          checklists:[],parts:[],questions:[],published:new Set(),view:"overview"};
 
 async function loadAll(){
   const [me,teams,tracks,pub]=await Promise.all([
@@ -375,6 +375,7 @@ async function loadAll(){
       api(`/api/racing/checklists?team_id=${ST.team.id}`).catch(()=>[]),
       api(`/api/racing/parts?team_id=${ST.team.id}`).catch(()=>[])]);
     ST.sessions=s; ST.laps=l; ST.setups=su; ST.checklists=cl; ST.parts=pa;
+    ST.questions=await api(`/api/racing/questions?team_id=${ST.team.id}`).catch(()=>[]);
   } else { ST.sessions=[];ST.laps=[];ST.setups=[];ST.checklists=[];ST.parts=[]; }
 }
 async function refresh(){ await loadAll(); render(); }
@@ -523,6 +524,19 @@ function viewTimes(){
       </tbody></table></div>`
     :empty("No sessions yet","A session is a practice, qualifying or race run. Create one, then log laps against it.",
       `<div><button class="btn primary" onclick="newSession()">Create a session</button></div>`)}</div>
+    <div class="card"><div class="card-h"><h3>Fan questions</h3>
+      <button class="pk-act go" onclick="askQuestion()">+ Ask</button></div>
+      ${ST.questions.length?`<div class="tablewrap"><table>
+        <thead><tr><th>Question</th><th class="num">Picks</th><th class="num">Pts</th><th>Status</th></tr></thead>
+        <tbody>${ST.questions.map(q=>`<tr><td>${esc(q.prompt)}
+          <div class="hint">${(q.options||[]).map(esc).join(" · ")}${q.correct_answer?` — answer: <b>${esc(q.correct_answer)}</b>`:""}</div></td>
+          <td class="num">${q.picks??0}</td><td class="num">${q.points}</td>
+          <td><span class="pill ${q.status==="resolved"?"ok":q.status==="locked"?"warn":"pub"}">${esc(q.status)}</span>
+            ${q.status!=="resolved"?`<button class="pk-act" onclick="qStatus(${q.id},'${q.status==="open"?"locked":"open"}')">${q.status==="open"?"Lock":"Reopen"}</button>
+            <button class="pk-act go" onclick="resolveQ(${q.id})">Resolve</button>`:""}</td></tr>`).join("")}
+        </tbody></table></div>`
+      :`<div class="empty">No questions yet. Ask fans to call a result and award points for correct picks.</div>`}
+    </div>
     <div class="card"><div class="card-h"><h3>Fastest laps</h3></div>
     ${ST.laps.length?`<div class="tablewrap"><table>
       <thead><tr><th>Session</th><th>Driver</th><th>Tire</th><th class="num">Lap</th><th class="num">Time</th></tr></thead>
@@ -803,6 +817,40 @@ function logHours(id,num,cur){
   modal(`Log hours — ${num}`,[{label:"Hours used",name:"h",value:String(cur)}],
     async v=>{await api(`/api/racing/parts/${id}/hours`,"PATCH",{hours_used:parseFloat(v.h)||0});
              toast("Hours updated — status re-derived");},"Save");
+}
+
+
+function askQuestion(){
+  if(!ST.sessions.length) return notice("No sessions yet","Create a session to pose a question on.");
+  modal("Ask fans a question",[
+    {label:"Session",name:"run_session_id",type:"select",
+     options:ST.sessions.map(s=>[s.id,`${s.session_type.toUpperCase()} · ${s.track}`])},
+    {label:"Question",name:"prompt",ph:"Where does the car qualify?"},
+    {label:"Options (one per line)",name:"options",type:"textarea"},
+    {label:"Points for a correct call",name:"points",value:"100"},
+  ],async v=>{
+    const opts=(v.options||"").split("\n").map(x=>x.trim()).filter(Boolean);
+    if(opts.length<2) throw new Error("Give at least two options");
+    await api(`/api/racing/questions?team_id=${ST.team.id}`,"POST",{
+      run_session_id:+v.run_session_id, prompt:v.prompt, options:opts,
+      points:parseInt(v.points)||100});
+    toast("Question posted to fans");
+  },"Ask");
+}
+async function qStatus(qid,status){
+  try{ await api(`/api/racing/questions/${qid}/status?team_id=${ST.team.id}`,"PATCH",{status});
+       toast(status==="locked"?"Locked — no more picks":"Reopened"); await refresh(); }
+  catch(e){ toast(e.message,true); }
+}
+function resolveQ(qid){
+  const q=ST.questions.find(x=>x.id===qid); if(!q) return;
+  modal("Resolve — pay the correct picks",[
+    {label:"Correct answer",name:"correct_answer",type:"select",
+     options:(q.options||[]).map(o=>[o,o])},
+  ],async v=>{
+    const r=await api(`/api/racing/questions/${qid}/resolve?team_id=${ST.team.id}`,"POST",v);
+    toast(r.already_resolved?"Already resolved":`Resolved — ${r.awarded} of ${r.picks} fans paid`);
+  },"Resolve");
 }
 
 /* ── render ────────────────────────────────────────────────────────────── */

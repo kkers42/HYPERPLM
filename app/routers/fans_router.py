@@ -114,3 +114,25 @@ async def unfollow(slug: str, fan: dict = Depends(current_fan)):
 @router.get("/following")
 async def my_following(fan: dict = Depends(current_fan)):
     return fans.following(fan["id"])
+
+
+class PickIn(BaseModel):
+    answer: str
+
+
+@router.post("/predict/{question_id}")
+async def predict(question_id: int, body: PickIn, fan: dict = Depends(current_fan)):
+    """Submit or change a pick while the question is open."""
+    from .. import predictions
+    fans.ensure_profile(fan["id"], fan["username"])
+    try:
+        return predictions.submit(fan["id"], question_id, body.answer)
+    except predictions.PredictionError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.get("/predictions")
+async def my_predictions(fan: dict = Depends(current_fan)):
+    from .. import predictions
+    return predictions.my_predictions(fan["id"])
+

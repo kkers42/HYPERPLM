@@ -399,3 +399,36 @@ follower count. Rebuilt so every figure comes from the database.
   is left as the production mirror.
 - Suite: **53 passed.**
 
+### Racing domain (Phase 3, step 12) — predictions and scoring (issue #7)
+
+- Migration `0006_predictions.py` adds `prediction_questions`. `predictions` (0003) stored
+  free text, which cannot be scored: two fans answering "the same" question shared no
+  identity and there was no answer key. Questions are **global** (no RLS) for the same
+  reason `team_directory` is — anonymous fans read them with no active org — and carry no
+  engineering data. `predictions` gains `question_id` with a unique index, so a fan holds
+  **one pick per question**.
+- `app/predictions.py`: the loop — a team poses a question on one of its sessions, fans pick
+  while it is `open`, the team `locks` it, then `resolves` it with the correct answer and
+  every correct pick is paid. Two rules are enforced rather than trusted:
+  **resolution is idempotent** (resolving twice pays nothing the second time) and a fan may
+  only pick while open, and only from the listed options.
+- The public route strips `correct_answer` from live questions, and only exposes questions
+  whose team is published — unpublishing a team hides its questions too.
+- Resolving requires the `release` ability, the same bar as publishing, because it moves
+  points.
+- Ten correct calls grants the *10 Correct Calls* badge.
+- UI: a **Predict** tab in the Fan Zone (pick, change your mind while open, see resolved
+  calls and what they paid) and a **Fan questions** panel in the workspace (ask, lock,
+  reopen, resolve — showing pick counts).
+- **A real security bug was caught by its own test.** The first cut took `team_id` from the
+  query string and compared it to the question's `team_id` — caller-supplied data checked
+  against itself, so another org could resolve your question by passing your team id.
+  Ownership is now proven by looking the team up **through the tenant session**, where RLS
+  simply does not return another org's row. `test_another_org_cannot_touch_your_questions`
+  fails against the old code.
+- Also added `tests/test_cold_start.py`: the journey a new user actually takes on an empty
+  database — register, create team, car and driver, run a session, log laps, write and clone
+  a setup, sign off a checklist, publish, and be seen and followed by a fan. It passed first
+  run.
+- Suite: **63 passed.**
+

@@ -199,3 +199,63 @@ async def publish_team(team_id: int, body: PublicIn,
     except PermissionError as e:
         raise HTTPException(403, str(e))
     return {"message": "ok", "is_public": body.is_public}
+
+
+# ── Prediction questions (issue #7) ───────────────────────────────────────────
+# Posing a question is a write; resolving one pays out points to fans, so it
+# needs `release` — the same bar as publishing.
+
+class QuestionIn(BaseModel):
+    run_session_id: int
+    prompt: str = Field(min_length=3, max_length=300)
+    options: list[str] = Field(min_length=2)
+    points: int = Field(100, ge=1, le=1000)
+
+
+class ResolveIn(BaseModel):
+    correct_answer: str
+
+
+class StatusIn(BaseModel):
+    status: str = Field(pattern="^(open|locked)$")
+
+
+@router.get("/questions")
+async def list_questions(team_id: int, ctx: RequestContext = Depends(require_ability("view"))):
+    from .. import predictions
+    try:
+        return predictions.questions_for_team(ctx.db, team_id)
+    except predictions.PredictionError as e:
+        raise HTTPException(404, str(e))
+
+
+@router.post("/questions", status_code=201)
+async def create_question(body: QuestionIn, team_id: int,
+                          ctx: RequestContext = Depends(require_ability("write"))):
+    from .. import predictions
+    try:
+        return predictions.create_question(ctx.db, body.run_session_id, team_id,
+                                           body.prompt, body.options, body.points)
+    except predictions.PredictionError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.patch("/questions/{qid}/status")
+async def question_status(qid: int, team_id: int, body: StatusIn,
+                          ctx: RequestContext = Depends(require_ability("write"))):
+    from .. import predictions
+    try:
+        return predictions.set_status(ctx.db, qid, team_id, body.status)
+    except predictions.PredictionError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/questions/{qid}/resolve")
+async def resolve_question(qid: int, team_id: int, body: ResolveIn,
+                           ctx: RequestContext = Depends(require_ability("release"))):
+    """Set the answer and pay every correct pick. Idempotent: never pays twice."""
+    from .. import predictions
+    try:
+        return predictions.resolve(ctx.db, qid, team_id, body.correct_answer)
+    except predictions.PredictionError as e:
+        raise HTTPException(400, str(e))

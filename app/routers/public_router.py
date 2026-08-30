@@ -148,3 +148,12 @@ async def public_stats():
         follow_count = c.execute(select(func.count()).select_from(follows)).scalar_one()
     return {"published_teams": teams, "circuits": circuits,
             "fans": fans, "follows": follow_count}
+
+
+@router.get("/questions")
+async def public_questions():
+    """Open prediction questions on published sessions. The answer key is never
+    included while a question is live."""
+    from .. import predictions
+    return predictions.open_questions()
+

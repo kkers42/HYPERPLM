@@ -356,12 +356,14 @@ td.num,th.num{text-align:right;font-family:var(--f-mono);font-variant-numeric:ta
   <div class="tabs">
     <div class="tab on" data-v="teams">Teams</div>
     <div class="tab" data-v="board">Fastest laps</div>
+    <div class="tab" data-v="predict">Predict</div>
     <div class="tab" data-v="circuits">Circuits</div>
     <div class="tab" data-v="me">My Paddock</div>
     <div class="tab" data-v="about">What fans get</div>
   </div>
   <section class="view on" id="v-teams"></section>
   <section class="view" id="v-board"></section>
+  <section class="view" id="v-predict"></section>
   <section class="view" id="v-circuits"></section>
   <section class="view" id="v-me"></section>
   <section class="view" id="v-about"></section>
@@ -385,19 +387,21 @@ async function api(p,method="GET",body){
 function toast(m){const t=document.createElement("div");t.className="toast";t.textContent=m;
   document.body.appendChild(t);setTimeout(()=>t.remove(),3000);}
 
-const ST={me:null,teams:[],tracks:[],board:[],stats:null,leaders:[],
+const ST={me:null,teams:[],tracks:[],board:[],stats:null,leaders:[],questions:[],picks:[],
           view:"teams",team:null,following:new Set()};
 
 async function loadAll(){
-  const [teams,tracks,board,stats,leaders,me]=await Promise.all([
+  const [teams,tracks,board,stats,leaders,me,questions]=await Promise.all([
     api("/api/public/teams").catch(()=>[]),
     api("/api/public/tracks").catch(()=>[]),
     api("/api/public/laps").catch(()=>[]),
     api("/api/public/stats").catch(()=>null),
     api("/api/public/leaderboard").catch(()=>[]),
-    api("/api/fan/me").catch(()=>null)]);
+    api("/api/fan/me").catch(()=>null),
+    api("/api/public/questions").catch(()=>[])]);
   ST.teams=teams; ST.tracks=tracks; ST.board=board; ST.stats=stats;
-  ST.leaders=leaders; ST.me=me;
+  ST.leaders=leaders; ST.me=me; ST.questions=questions;
+  ST.picks = me ? await api("/api/fan/predictions").catch(()=>[]) : [];
   ST.following=new Set((me?.following||[]).map(t=>t.slug));
 }
 async function refresh(){ await loadAll(); render(); }
@@ -544,6 +548,49 @@ function viewBoard(){
       </tbody></table></div></div>`;
 }
 
+
+function viewPredict(){
+  const picked={}; ST.picks.forEach(p=>picked[p.prompt]=p.answer);
+  const open=ST.questions;
+  const resolved=ST.picks.filter(p=>p.status==="resolved");
+  let out="";
+  if(!open.length){
+    out+=`<div class="card"><div class="empty"><b>No open questions</b>
+      Teams pose questions on a session — call the qualifying result or the first stop and
+      earn Paddock Points when you get it right.</div></div>`;
+  } else {
+    out+=`<p class="hint" style="margin:0 0 14px">${open.length} question${open.length===1?"":"s"} open.
+      ${ST.me?"":"Sign in to lock in a pick."}</p><div class="grid cards">`;
+    out+=open.map(q=>{
+      const mine=picked[q.prompt];
+      return `<div class="card pad">
+        <div class="eyebrow" style="color:var(--faint);margin-bottom:6px">#${esc(q.car_number)} ${esc(q.team)}</div>
+        <h4 style="font-size:15px;margin-bottom:10px">${esc(q.prompt)}</h4>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${q.options.map(o=>
+          `<button class="follow-btn${mine===o?" on":""}" style="width:auto"
+            onclick="pick(${q.id},'${esc(o).replace(/'/g,"&#39;")}')">${esc(o)}</button>`).join("")}</div>
+        <p class="hint" style="margin:10px 0 0">Worth <b class="fz-pts">${q.points}</b> points${mine?` · you picked <b>${esc(mine)}</b>`:""}</p>
+      </div>`;}).join("");
+    out+=`</div>`;
+  }
+  if(resolved.length){
+    out+=`<div class="card" style="margin-top:14px"><div class="card-h"><h3>Your resolved calls</h3></div>
+      <div class="tablewrap"><table><thead><tr><th>Question</th><th>Team</th><th>Your pick</th>
+      <th>Answer</th><th class="num">Points</th></tr></thead><tbody>
+      ${resolved.map(p=>`<tr><td>${esc(p.prompt)}</td><td>${esc(p.team)}</td>
+        <td>${esc(p.answer)}</td><td>${esc(p.correct_answer||"—")}</td>
+        <td class="num ${p.is_correct?"pb":""}">${p.is_correct?"+"+p.points_awarded:"0"}</td></tr>`).join("")}
+      </tbody></table></div></div>`;
+  }
+  return out;
+}
+async function pick(qid,answer){
+  if(!ST.me) return authModal("signup");
+  try{ await api(`/api/fan/predict/${qid}`,"POST",{answer});
+       toast("Pick locked in"); await refresh(); }
+  catch(e){ toast(e.message); }
+}
+
 function viewCircuits(){
   if(!ST.tracks.length) return `<div class="card"><div class="empty"><b>No circuits</b>The library is empty.</div></div>`;
   return `<p class="hint" style="margin:0 0 14px">Every circuit on the IMSA &amp; IndyCar calendars.</p>
@@ -622,7 +669,7 @@ async function openTeam(slug){
 function closeTeam(){ ST.team=null; render(); }
 
 /* ── render ────────────────────────────────────────────────────────────── */
-const VIEWS={teams:viewTeams,board:viewBoard,circuits:viewCircuits,me:viewMe,about:viewAbout};
+const VIEWS={teams:viewTeams,board:viewBoard,predict:viewPredict,circuits:viewCircuits,me:viewMe,about:viewAbout};
 function render(){
   renderChrome();
   const el=$("#v-"+ST.view); if(el) el.innerHTML=VIEWS[ST.view]();
