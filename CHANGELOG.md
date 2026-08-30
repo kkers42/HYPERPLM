@@ -302,3 +302,38 @@ and confirmed it persisted and was flagged fastest for its session.
 - Suite run against a dedicated `hyperplm_pytest` database (the demo instance on the Atlas
   testing copy is left intact): **35 passed**.
 
+### Racing domain (Phase 3, step 9) — fan accounts (issue #6)
+
+- `app/fans.py` + `app/routers/fans_router.py`: registration, sign-in, follow/unfollow,
+  points and badges for **fans** — accounts that belong to no organization. This is the
+  other half of the association model: a member has an `org_members` row and reaches the app
+  through the tenant path; a fan has a `fan_profiles` row and no membership, so that path
+  refuses them by design (`get_principal` 403s with "No organization for this account").
+  Fans therefore use their own `current_fan` dependency, which resolves the session **without**
+  touching membership.
+- That is also the security boundary: nothing in the fan router opens a tenant session or
+  reads a tenant table. Fans touch only global tables (`fan_profiles`, `follows`,
+  `point_ledger`, `badges`, `team_directory`); published team data is read through the
+  anonymous `/api/public/*` routes, which do the directory → tenant_session →
+  `visibility='public'` resolution in one audited place.
+- Registration deliberately does **not** reuse `accounts.register_local_user`, which
+  provisions an org — that would make every fan a tenant and erase the distinction.
+- A person can be both: a member who follows a rival team gets a profile with
+  `fan_type='member'` and keeps their org access. Following a private team is refused
+  (404) so an unpublished team cannot be discovered by slug.
+- First follow awards 50 points and the *First Follow* badge; later follows award 10. Points
+  are an append-only ledger, so unfollowing does not claw them back. Following twice is
+  idempotent and does not double-award.
+- Fan Zone UI wired to the real API: Sign in / Join as a fan in the header, live follow
+  buttons on every team card and on the team page, and a signed-in summary (teams followed,
+  points, badges).
+- `tests/test_fans.py` (11 tests) covers the boundary — a fan is 403 on every tenant route,
+  member signup still provisions an org, follow/unfollow, private teams unfollowable,
+  anonymous 401, points/badges, idempotency, leaderboard, and the member-who-is-also-a-fan.
+- Two bugs found by driving the real browser rather than the API: the fan controls targeted
+  the wrong DOM (the shipped page is the full Paddock design, not the earlier simple shell),
+  and a `MutationObserver` repaint re-entered itself forever and wedged the renderer. Both
+  fixed; the observer is now coalesced through `requestAnimationFrame` with a re-entrancy
+  guard, and `tests/test_ui_contract.py` gained a check for exactly that pattern.
+- Suite: **48 passed**.
+

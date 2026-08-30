@@ -27,6 +27,7 @@ from .routers import (
     racing_router,
     public_router,
     racing_write_router,
+    fans_router,
 )
 
 _STATIC = Path(__file__).parent.parent / "static"
@@ -63,6 +64,7 @@ app.include_router(admin_router.router)
 app.include_router(racing_router.router)
 app.include_router(public_router.router)
 app.include_router(racing_write_router.router)
+app.include_router(fans_router.router)
 
 
 # App pages are HTML shells that change with every deploy; a cached copy silently

@@ -97,3 +97,32 @@ def test_public_pages_need_no_login(client):
 def test_private_api_still_requires_login(client):
     for path in ["/api/racing/teams", "/api/racing/setups", "/api/racing/parts"]:
         assert client.get(path).status_code == 401, f"{path} must require auth"
+
+
+# ── the fan layer must be wired to the fan API, and only the fan API ─────────
+
+def test_paddock_ships_fan_account_controls(client):
+    body = client.get("/paddock").text
+    for needle, why in [
+        ("/api/fan/register", "fan signup"),
+        ("/api/fan/follow/", "follow / unfollow"),
+        ("/api/fan/me", "the fan's own profile"),
+        ("data-slug", "follow buttons must carry the team slug they act on"),
+    ]:
+        assert needle in body, f"/paddock is missing {why!r}"
+
+
+# ── a MutationObserver that repaints must not be able to re-enter ────────────
+
+def test_mutation_observers_are_guarded(client):
+    """An observer on body+subtree whose callback writes to the DOM will retrigger
+    itself forever and wedge the renderer — which is exactly what happened while
+    wiring the follow buttons. Require a coalescing or re-entrancy guard."""
+    for path in ["/racing", "/paddock"]:
+        body = client.get(path).text
+        if "MutationObserver" not in body:
+            continue
+        assert ("requestAnimationFrame" in body or "painting" in body), (
+            f"{path} uses MutationObserver with no coalescing/re-entrancy guard; "
+            "a repaint inside the callback re-triggers the observer forever")
+

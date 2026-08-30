@@ -850,7 +850,7 @@ function tf(){var b=document.getElementById('teamFollow');var on=b.classList.tog
     if(fc) fc.innerHTML=teams.map(t=>`<div class="tcard" style="border:1px solid var(--border);border-radius:12px">
       <div class="row"><div class="tno" style="background:var(--team)">${esc(t.car_number)}</div>
       <div><h4>${esc(t.name).slice(0,14)}</h4><div class="cl">${esc(t.class||t.series)}</div></div></div>
-      <button class="follow-btn on" onclick="this.classList.toggle('on');this.textContent=this.classList.contains('on')?'✓ Following':'+ Follow'">✓ Following</button></div>`).join("");
+      <button class="follow-btn" data-slug="${esc(t.slug)}">+ Follow</button></div>`).join("");
 
     // ── Fan leaderboard (real)
     try{
@@ -873,6 +873,174 @@ function tf(){var b=document.getElementById('teamFollow');var on=b.classList.tog
 
     // real links out
     $$("#p-welcome .btn.primary").forEach(b=>{ if(/start free/i.test(b.textContent)) b.onclick=()=>location.href="/login"; });
+  }
+  if(document.readyState!=="loading") boot(); else addEventListener("DOMContentLoaded",boot);
+})();
+</script>
+<script>
+/* ── FAN ACCOUNTS (issue #6) ────────────────────────────────────────────────
+   Sign up / sign in as a spectator and follow published teams. A fan has no
+   organization, so this talks only to /api/fan/* and /api/public/* — never the
+   tenant API. */
+(function(){
+  const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+  const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  async function api(p,method="GET",body){
+    const o={method,credentials:"same-origin",headers:{}};
+    if(body!==undefined){o.headers["Content-Type"]="application/json";o.body=JSON.stringify(body);}
+    const r=await fetch(p,o);
+    if(!r.ok){let d="";try{d=(await r.json()).detail||""}catch(e){}
+      throw new Error(d||`HTTP ${r.status}`);}
+    return r.status===204?null:r.json();
+  }
+
+  const css=document.createElement("style");
+  css.textContent=`
+  .fz-ov{position:fixed;inset:0;background:rgba(4,8,11,.72);z-index:300;display:grid;place-items:center;padding:20px}
+  .fz-md{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:min(420px,100%);overflow:hidden}
+  .fz-md h3{font-size:16px;padding:16px 18px;border-bottom:1px solid var(--border);margin:0}
+  .fz-bd{padding:16px 18px;display:flex;flex-direction:column;gap:11px}
+  .fz-bd label{font-family:var(--f-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:5px}
+  .fz-bd input{width:100%;font:inherit;font-size:14px;background:var(--surface-2);border:1px solid var(--border);
+    color:var(--text);border-radius:9px;padding:10px 12px}
+  .fz-ft{display:flex;gap:9px;justify-content:space-between;align-items:center;padding:13px 18px;border-top:1px solid var(--border)}
+  .fz-err{color:var(--red);font-size:12.5px;min-height:1em}
+  .fz-link{background:none;border:0;color:var(--purple);font:inherit;font-size:12.5px;cursor:pointer;text-decoration:underline}
+  .fz-who{display:flex;align-items:center;gap:8px;font-size:13px}
+  .fz-pts{font-family:var(--f-mono);font-weight:700;color:var(--purple)}`;
+  document.head.appendChild(css);
+
+  let ME=null;
+
+  function authModal(mode){
+    const signup = mode==="signup";
+    const ov=document.createElement("div"); ov.className="fz-ov";
+    ov.innerHTML=`<div class="fz-md">
+      <h3>${signup?"Create a fan account":"Sign in"}</h3>
+      <div class="fz-bd">
+        <div><label>Username</label><input name="username" autocomplete="username"></div>
+        ${signup?'<div><label>Display name</label><input name="display_name" placeholder="shown on the leaderboard"></div>':""}
+        <div><label>Password</label><input name="password" type="password" autocomplete="${signup?"new-password":"current-password"}"></div>
+        <div class="fz-err"></div>
+      </div>
+      <div class="fz-ft">
+        <button class="fz-link" data-swap>${signup?"I already have an account":"Create an account instead"}</button>
+        <span><button class="btn" data-x>Cancel</button>
+        <button class="btn primary" data-ok>${signup?"Create":"Sign in"}</button></span>
+      </div></div>`;
+    document.body.appendChild(ov);
+    const close=()=>ov.remove();
+    ov.querySelector("[data-x]").onclick=close;
+    ov.onclick=e=>{if(e.target===ov)close();};
+    ov.querySelector("[data-swap]").onclick=()=>{close();authModal(signup?"signin":"signup");};
+    ov.querySelector("[data-ok]").onclick=async()=>{
+      const v={}; $$("input",ov).forEach(i=>v[i.name]=i.value);
+      const btn=ov.querySelector("[data-ok]"); btn.disabled=true;
+      try{
+        if(signup) await api("/api/fan/register","POST",
+          {username:v.username,password:v.password,display_name:v.display_name||v.username});
+        else await api("/api/fan/login","POST",{username:v.username,password:v.password});
+        location.reload();
+      }catch(e){ ov.querySelector(".fz-err").textContent=e.message; btn.disabled=false; }
+    };
+    ov.querySelector("input").focus();
+  }
+
+  async function boot(){
+    try{ ME=await api("/api/fan/me"); }catch(e){ ME=null; }
+    const bar=$(".nav .wrap");
+
+    // header: who you are, or the way in
+    if(bar){
+      const old=$(".fz-who",bar); if(old) old.remove();
+      // the design ships static Sign in / Start free links — make them real
+      $$("a.btn", bar).forEach(a=>{
+        const t=(a.textContent||"").toLowerCase();
+        if(t.includes("sign in")){ a.removeAttribute("href"); a.style.cursor="pointer";
+          a.onclick=e=>{e.preventDefault();authModal("signin");}; }
+        if(t.includes("start free")){ a.removeAttribute("href"); a.style.cursor="pointer";
+          a.textContent="Join as a fan";
+          a.onclick=e=>{e.preventDefault();authModal("signup");}; }
+      });
+      const el=document.createElement("span"); el.className="fz-who";
+      if(ME){
+        el.innerHTML=`<span>${esc(ME.profile.display_name||"Fan")}</span>
+          <span class="fz-pts">${ME.profile.points} pts</span>
+          <button class="btn" data-out>Sign out</button>`;
+        $$("a.btn", bar).forEach(a=>{ const t=(a.textContent||"").toLowerCase();
+          if(t.includes("sign in")||t.includes("join as a fan")) a.style.display="none"; });
+        bar.appendChild(el);
+        el.querySelector("[data-out]").onclick=async()=>{
+          try{ await fetch("/auth/logout",{method:"POST",credentials:"same-origin"}); }catch(e){}
+          document.cookie="plm_session=; Max-Age=0; path=/"; location.reload();
+        };
+      }
+    }
+
+    const followed = new Set((ME?.following||[]).map(t=>t.slug));
+
+    // team cards -> real follow buttons
+    async function toggle(slug,btn){
+      if(!ME) return authModal("signup");
+      btn.disabled=true;
+      try{
+        if(followed.has(slug)){ await api(`/api/fan/follow/${encodeURIComponent(slug)}`,"DELETE"); }
+        else { await api(`/api/fan/follow/${encodeURIComponent(slug)}`,"POST"); }
+        location.reload();
+      }catch(e){ btn.disabled=false; btn.textContent="Try again"; }
+    }
+
+    let painting=false;
+    function paint(){
+      if(painting) return;
+      painting=true;                       // paint() mutates the DOM; without this
+      try{                                 // the observer below re-entered forever
+        $$("[data-slug]").forEach(b=>{
+          const on=followed.has(b.dataset.slug);
+          const want = b.closest("#teamdetail") ? (on?"✓ Following":"★ Follow")
+                                                : (on?"✓ Following":"+ Follow");
+          // only write when it actually changes — assigning the same text is
+          // still a mutation and would keep the observer firing
+          if(b.textContent!==want) b.textContent=want;
+          if(b.classList.contains("on")!==on) b.classList.toggle("on",on);
+        });
+      } finally { painting=false; }
+    }
+    paint();
+    document.addEventListener("click",e=>{
+      const b=e.target.closest?.("[data-slug]");
+      if(!b || !/Follow|Following/.test(b.textContent||"")) return;
+      e.preventDefault(); e.stopPropagation();
+      toggle(b.dataset.slug,b);
+    },true);
+    // the team detail pane is rendered later; repaint when it appears
+    // repaint when the team-detail pane is rendered, coalesced to a frame so a
+    // paint can never re-enter the observer synchronously
+    let queued=false;
+    new MutationObserver(()=>{ if(queued)return; queued=true;
+      requestAnimationFrame(()=>{ queued=false; paint(); }); })
+      .observe(document.body,{childList:true,subtree:true});
+
+    // remember the team list so the detail Follow can resolve a slug
+    try{ window.__fanTeams=await (await fetch("/api/public/teams")).json(); }catch(e){}
+
+    // "My paddock" summary if signed in
+    if(ME){
+      const lead=$("#v-leaderboard .card .pad")||$("#leadlist");
+      const box=$("#p-fan")||null;
+      const host=$("#v-about")||null;
+      const note=document.createElement("div");
+      note.className="card pad";
+      note.style.marginTop="14px";
+      note.innerHTML=`<div class="eyebrow" style="color:var(--faint);margin-bottom:8px">Your paddock</div>
+        <div style="font-size:14px;line-height:1.9;color:var(--dim)">
+          Following <b style="color:var(--text)">${ME.following.length}</b> team${ME.following.length===1?"":"s"} ·
+          <span class="fz-pts">${ME.profile.points} Paddock Points</span> ·
+          <b style="color:var(--text)">${ME.badges_earned.length}</b> badge${ME.badges_earned.length===1?"":"s"}
+          ${ME.badges_earned.length?"<br>"+ME.badges_earned.map(b=>esc(b.name)).join(" · "):""}
+        </div>`;
+      (host||document.querySelector(".wrap"))?.appendChild(note);
+    }
   }
   if(document.readyState!=="loading") boot(); else addEventListener("DOMContentLoaded",boot);
 })();
