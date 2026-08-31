@@ -513,7 +513,8 @@ function viewTimes(){
   if(!ST.team) return needTeam();
   return head("All sessions","Lap Times",
     `Times across every session logged for #${esc(ST.team.car_number)}.`,
-    `<button class="btn" onclick="newSession()">+ Session</button>
+    `<button class="btn" onclick="importLaps()">⭱ Import</button>
+     <button class="btn" onclick="newSession()">+ Session</button>
      <button class="btn primary" onclick="logLap()">+ Log lap</button>`)
   + (ST.laps.length?`<div class="card" style="margin-bottom:14px">
       <div class="card-h"><h3>Progression</h3><span class="eyebrow">purple = session fastest</span></div>
@@ -595,6 +596,7 @@ function setupPane(d){
         <button class="btn" onclick="addValue(${d.id})">+ Value</button>
         <button class="btn" onclick="cloneSetup('${esc(d.setup_key)}')">Clone as revision</button>
         ${ST.templates.length?`<button class="btn" onclick="applyTemplate(${d.id})">Apply template</button>`:""}
+        <button class="btn" onclick="importSetup(${d.id})">⭱ Import values</button>
         </div></div>`;
 }
 
@@ -619,7 +621,8 @@ function viewParts(){
   const col=s=>s==="over"?"var(--red)":s==="service_soon"?"var(--yellow)":"var(--green)";
   return head("PLM parts + service life","Parts &amp; CAD",
     "These are real PLM parts. Paddock adds which car runs them and their life against limit.",
-    `<button class="btn" onclick="location.href='/app'">Open PLM</button>
+    `<button class="btn" onclick="importParts()">⭱ Import</button>
+     <button class="btn" onclick="location.href='/app'">Open PLM</button>
      <button class="btn primary" onclick="trackPart()">+ Track a part</button>`)
   + (ST.parts.length?`<div class="card"><div class="card-h"><h3>Life-limited components</h3><span class="pill team">Team</span></div>
     <div class="tablewrap"><table>
@@ -633,7 +636,8 @@ function viewParts(){
         <td><span class="pill ${p.status==="over"?"crit":p.status==="service_soon"?"warn":"ok"}">${esc(p.status.replace("_"," "))}</span></td></tr>`).join("")}
       </tbody></table></div></div>`
     : empty("No parts tracked","Track a PLM part against this car to monitor hours and cycles against its limit.",
-        `<div><button class="btn primary" onclick="trackPart()">Track a part</button></div>`));
+        `<div><button class="btn primary" onclick="trackPart()">Track a part</button>
+          <button class="btn" style="margin-left:8px" onclick="importParts()">Import a spreadsheet</button></div>`));
 }
 
 function viewCar(){
@@ -914,6 +918,94 @@ function applyTemplate(setupId){
     toast(`${r.fields_added} fields laid out`);
     ST._setupKey=ST._setup?.setup_key;
   },"Apply");
+}
+
+
+/* ── Import a spreadsheet ───────────────────────────────────────────────────
+   Always previews first: you see the row counts, which columns were detected
+   and which rows will be skipped, before anything is written. */
+function importDialog(kind, title, commitUrl, hint){
+  const ov=document.createElement("div"); ov.className="pk-ov";
+  ov.innerHTML=`<div class="pk-md" style="width:min(620px,100%)">
+    <h3>${esc(title)}</h3>
+    <div class="pk-bd">
+      <div class="hint">${hint}</div>
+      <div><label>CSV or Excel file</label>
+        <input type="file" name="f" accept=".csv,.tsv,.txt,.xlsx,.xlsm"></div>
+      <div id="impPrev"></div>
+      <div class="pk-err"></div>
+    </div>
+    <div class="pk-ft"><button class="btn" data-x>Cancel</button>
+      <button class="btn primary" data-ok disabled>Import</button></div></div>`;
+  document.body.appendChild(ov);
+  const close=()=>ov.remove();
+  ov.querySelector("[data-x]").onclick=close;
+  ov.onclick=e=>{if(e.target===ov)close();};
+  const fileEl=ov.querySelector("[name=f]"), okBtn=ov.querySelector("[data-ok]");
+  const prev=ov.querySelector("#impPrev"), err=ov.querySelector(".pk-err");
+
+  fileEl.onchange=async()=>{
+    err.textContent=""; prev.innerHTML=""; okBtn.disabled=true;
+    const f=fileEl.files[0]; if(!f) return;
+    const fd=new FormData(); fd.append("file",f);
+    try{
+      const r=await fetch(`/api/racing/import/${kind}/preview`,
+        {method:"POST",credentials:"same-origin",body:fd});
+      const d=await r.json();
+      if(!r.ok) throw new Error(d.detail||"Could not read that file");
+      prev.innerHTML=`<div class="card" style="box-shadow:none">
+        <div class="pad" style="padding:12px 14px">
+          <div class="spec"><span class="k">Rows in file</span><span class="v">${d.total_rows}</span></div>
+          <div class="spec"><span class="k">Will import</span><span class="v" style="color:var(--green)">${d.ready}</span></div>
+          <div class="spec"><span class="k">Will skip</span><span class="v" style="color:${d.skipped?"var(--yellow)":"var(--dim)"}">${d.skipped}</span></div>
+          <div class="spec"><span class="k">Columns found</span><span class="v" style="font-weight:400">${d.detected_columns.map(esc).join(", ")}</span></div>
+          ${d.errors.length?`<div class="eyebrow" style="margin:10px 0 6px">Skipped rows</div>
+            ${d.errors.slice(0,6).map(e=>`<div class="hint">row ${e.row}: ${esc(e.problem)}${e.value?` — "${esc(e.value)}"`:""}</div>`).join("")}
+            ${d.errors.length>6?`<div class="hint">…and ${d.errors.length-6} more</div>`:""}`:""}
+        </div></div>`;
+      okBtn.disabled = d.ready === 0;
+      if(!d.ready) err.textContent="Nothing in that file could be read. Expected columns: "+d.expected_columns;
+    }catch(e){ err.textContent=e.message; }
+  };
+
+  okBtn.onclick=async()=>{
+    const f=fileEl.files[0]; if(!f) return;
+    okBtn.disabled=true; okBtn.textContent="Importing…";
+    const fd=new FormData(); fd.append("file",f);
+    try{
+      const r=await fetch(commitUrl(),{method:"POST",credentials:"same-origin",body:fd});
+      const d=await r.json();
+      if(!r.ok) throw new Error(d.detail||"Import failed");
+      const n=d.inserted??d.values??d.total??0;
+      let msg=`Imported ${n}`;
+      if(d.unmatched_drivers?.length) msg+=` · unmatched drivers: ${d.unmatched_drivers.join(", ")}`;
+      if(d.parts_created!==undefined) msg=`${d.parts_created} parts created, ${d.usages_updated} updated`;
+      close(); toast(msg); await refresh();
+    }catch(e){ err.textContent=e.message; okBtn.disabled=false; okBtn.textContent="Import"; }
+  };
+}
+
+function importLaps(){
+  if(!ST.sessions.length) return notice("No sessions yet","Create a session first — laps import into one.");
+  const ov=modal("Import lap times",[
+    {label:"Into session",name:"sid",type:"select",
+     options:ST.sessions.map(s=>[s.id,`${s.session_type.toUpperCase()} · ${s.track}`])},
+  ],async v=>{
+    importDialog("laps","Import lap times",
+      ()=>`/api/racing/import/laps?run_session_id=${+v.sid}`,
+      "Columns: Lap, Time, Driver, Tire. Times may be 1:41.208, 101.208 or 1:41.");
+  },"Choose file…");
+}
+function importSetup(setupId){
+  importDialog("setup","Import a setup sheet",
+    ()=>`/api/racing/import/setup?setup_id=${setupId}`,
+    "Columns: Group, Field, Value, Unit — one row per setting.");
+}
+function importParts(){
+  if(!ST.team) return;
+  importDialog("parts","Import parts & service life",
+    ()=>`/api/racing/import/parts?team_id=${ST.team.id}`,
+    "Columns: Part Number, Description, Hours Used, Hours Limit. Re-importing updates hours rather than duplicating.");
 }
 
 /* ── render ────────────────────────────────────────────────────────────── */

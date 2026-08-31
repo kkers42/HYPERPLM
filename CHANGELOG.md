@@ -463,3 +463,34 @@ From the first testing pass:
   includes it, that the two starter lists genuinely differ, and that templates are private
   to their org.
 
+### Racing domain (Phase 3, step 14) — importing existing team data
+
+From the testing notes: *"how could they import their existing data?"* Nobody retypes a
+season by hand, so this is the difference between a team trying the product and moving
+into it. `app/importer.py` reads CSV and Excel; `racing.py` applies it.
+
+- **Preview, then commit.** Parsing and writing are separate calls. Before anything is
+  written you see the row count, which columns were detected, how many rows will import
+  and which will be skipped with their reasons. An import that silently half-applies is
+  worse than one that refuses.
+- **Per-row errors, not per-file.** One malformed lap does not reject a season; the bad
+  row is reported with its line number (header included, so it matches what the
+  spreadsheet shows) and the good rows import.
+- **Forgiving about real files.** Column names are matched case- and
+  punctuation-insensitively against known aliases, so `Lap`, `lap #` and `LapNo` all work;
+  the delimiter is sniffed, so semicolon exports work; and lap times parse as
+  `1:41.208`, `101.208`, `1:41` or a spreadsheet number.
+- Three importers: **laps** into a chosen session (driver names resolved against the
+  roster; unmatched names are reported rather than dropped, and PB/fastest is recomputed
+  afterwards), **setup values** onto a sheet, and **parts** which creates the PLM part if
+  it is new and otherwise updates hours — so re-importing a corrected file does not
+  duplicate anything. Part status is derived by the 0005 trigger on import exactly as on
+  manual entry.
+- Cross-tenant imports cannot land: RLS hides another org's session, so the write 404s.
+- Suite: **77 passed.** Verified through the browser against real files — preview reported
+  4 of 5 rows and wrote nothing; commit inserted exactly 4 and named the skipped row.
+
+*(One test of mine was wrong, not the code: I asserted 38/40 hours should read `over`,
+but 95% is `service_soon` — the trigger was right. Corrected, and the test now covers all
+three bands.)*
+

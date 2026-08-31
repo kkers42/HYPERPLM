@@ -529,3 +529,79 @@ def apply_template(db: TenantDB, setup_id: int, template_id: int) -> int:
     db.execute(update(setups).where(setups.c.id == setup_id)
                .values(template_id=template_id))
     return len(fields)
+
+
+# ══ IMPORT (testing-notes follow-up) ══════════════════════════════════════════
+# Applying a parsed spreadsheet. Parsing lives in app/importer.py; this is the
+# part that writes, so it stays with the rest of the racing writes.
+
+def import_laps(db: TenantDB, run_session_id: int, rows: list[dict]) -> dict:
+    """Bulk-insert laps into one session, resolving driver names to this team's
+    drivers where they match. Unknown driver names are kept on the lap as-is
+    rather than silently dropped, so nothing is lost in translation."""
+    sess = db.execute(select(run_sessions.c.id, run_sessions.c.event_id,
+                             run_sessions.c.visibility)
+                      .where(run_sessions.c.id == run_session_id)).first()
+    if not sess:
+        raise ValueError("Session not found")
+    team_id = db.execute(select(events.c.team_id)
+                         .where(events.c.id == sess._mapping["event_id"])).scalar()
+    known = {d["name"].strip().lower(): d["id"] for d in _rows(db.execute(
+        select(drivers.c.id, drivers.c.name).where(drivers.c.team_id == team_id)))}
+
+    inserted, unmatched = 0, set()
+    for r in rows:
+        did = None
+        nm = (r.get("driver_name") or "").strip().lower()
+        if nm:
+            did = known.get(nm)
+            if did is None:
+                unmatched.add(r["driver_name"].strip())
+        db.execute(insert(laps).values(
+            org_id=db.org_id, run_session_id=run_session_id,
+            lap_no=r["lap_no"], lap_time_ms=r["lap_time_ms"], driver_id=did,
+            tire_compound=r.get("tire_compound", ""),
+            visibility=sess._mapping["visibility"]))
+        inserted += 1
+    _reflag_session(db, run_session_id)
+    return {"inserted": inserted, "unmatched_drivers": sorted(unmatched)}
+
+
+def import_setup_values(db: TenantDB, setup_id: int, rows: list[dict]) -> dict:
+    own = db.execute(select(setups.c.id).where(setups.c.id == setup_id)).first()
+    if not own:
+        raise ValueError("Setup sheet not found")
+    for i, r in enumerate(rows):
+        set_setup_value(db, setup_id, r["attr_key"], r["attr_value"],
+                        r.get("group_name", ""), r.get("unit", ""), i)
+    return {"values": len(rows)}
+
+
+def import_parts(db: TenantDB, team_id: int, car_id: Optional[int],
+                 rows: list[dict], user_id: int) -> dict:
+    """Create the PLM part if it doesn't exist yet, then track its service life.
+    Re-importing the same file updates hours rather than duplicating parts."""
+    own = db.execute(select(teams.c.id).where(teams.c.id == team_id)).first()
+    if not own:
+        raise ValueError("Team not found")
+    created, updated = 0, 0
+    for r in rows:
+        pid = db.execute(select(parts.c.id)
+                         .where(parts.c.part_number == r["part_number"])).scalar()
+        if pid is None:
+            pid = db.execute(insert(parts).values(
+                org_id=db.org_id, part_number=r["part_number"],
+                part_name=r["part_name"], created_by=user_id).returning(parts.c.id)).scalar()
+            created += 1
+        existing = db.execute(select(part_usages.c.id).where(
+            part_usages.c.part_id == pid, part_usages.c.team_id == team_id)).scalar()
+        if existing:
+            db.execute(update(part_usages).where(part_usages.c.id == existing).values(
+                hours_used=r["hours_used"], hours_limit=r["hours_limit"]))
+            updated += 1
+        else:
+            db.execute(insert(part_usages).values(
+                org_id=db.org_id, part_id=pid, team_id=team_id, car_id=car_id,
+                hours_used=r["hours_used"], hours_limit=r["hours_limit"]))
+    return {"parts_created": created, "usages_updated": updated,
+            "total": len(rows)}

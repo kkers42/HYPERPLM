@@ -11,7 +11,7 @@ session; RLS WITH CHECK rejects a cross-tenant write at the database.
 """
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from .. import racing
@@ -306,4 +306,76 @@ async def apply_template(setup_id: int, template_id: int,
     """Lay a template's fields onto a sheet, ready to fill in."""
     n = racing.apply_template(ctx.db, setup_id, template_id)
     return {"message": "ok", "fields_added": n}
+
+
+# ── Import existing team data (testing-notes follow-up) ──────────────────────
+# Two steps on purpose: preview shows exactly what will happen, commit writes.
+# Nobody should discover what an import did by looking at the result.
+
+MAX_IMPORT_BYTES = 8 * 1024 * 1024
+
+
+@router.post("/import/{kind}/preview")
+async def import_preview(kind: str, file: UploadFile = File(...),
+                         ctx: RequestContext = Depends(require_ability("write"))):
+    """Parse a CSV/XLSX and report what would be imported. Writes nothing."""
+    from .. import importer
+    data = await file.read()
+    if len(data) > MAX_IMPORT_BYTES:
+        raise HTTPException(413, "That file is larger than 8 MB")
+    try:
+        out = importer.preview(kind, data, file.filename or "")
+    except importer.ImportError_ as e:
+        raise HTTPException(400, str(e))
+    out.pop("rows", None)          # the preview response keeps only the sample
+    return out
+
+
+@router.post("/import/laps")
+async def import_laps(run_session_id: int, file: UploadFile = File(...),
+                      ctx: RequestContext = Depends(require_ability("write"))):
+    from .. import importer
+    data = await file.read()
+    if len(data) > MAX_IMPORT_BYTES:
+        raise HTTPException(413, "That file is larger than 8 MB")
+    try:
+        parsed = importer.preview("laps", data, file.filename or "")
+        result = racing.import_laps(ctx.db, run_session_id, parsed["rows"])
+    except importer.ImportError_ as e:
+        raise HTTPException(400, str(e))
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    return result | {"skipped": parsed["skipped"], "errors": parsed["errors"]}
+
+
+@router.post("/import/setup")
+async def import_setup(setup_id: int, file: UploadFile = File(...),
+                       ctx: RequestContext = Depends(require_ability("write"))):
+    from .. import importer
+    data = await file.read()
+    try:
+        parsed = importer.preview("setup", data, file.filename or "")
+        result = racing.import_setup_values(ctx.db, setup_id, parsed["rows"])
+    except importer.ImportError_ as e:
+        raise HTTPException(400, str(e))
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    return result | {"skipped": parsed["skipped"], "errors": parsed["errors"]}
+
+
+@router.post("/import/parts")
+async def import_parts(team_id: int, car_id: Optional[int] = None,
+                       file: UploadFile = File(...),
+                       ctx: RequestContext = Depends(require_ability("write"))):
+    from .. import importer
+    data = await file.read()
+    try:
+        parsed = importer.preview("parts", data, file.filename or "")
+        result = racing.import_parts(ctx.db, team_id, car_id, parsed["rows"],
+                                     ctx.user["id"])
+    except importer.ImportError_ as e:
+        raise HTTPException(400, str(e))
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    return result | {"skipped": parsed["skipped"], "errors": parsed["errors"]}
 
