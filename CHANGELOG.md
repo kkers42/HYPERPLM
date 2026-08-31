@@ -494,3 +494,28 @@ into it. `app/importer.py` reads CSV and Excel; `racing.py` applies it.
 but 95% is `service_soon` — the trigger was right. Corrected, and the test now covers all
 three bands.)*
 
+### Racing domain (Phase 3, step 15) — the car as the spine
+
+From the testing notes: *"Parts & CAD are confusing to me. Car & Build also confusing —
+are we trying to connect the multiple cars a team might have to the set-ups and
+data/components?"* Yes, and the model already did; the UI never drew the line, so both
+screens read as disconnected fragments.
+
+- Migration `0008` adds `setups.car_id`. Sessions and part usages already named a car;
+  setups only named a team, so with two cars on one entry you could not answer
+  *"what was on car 74 when we set that time?"* One nullable column; existing sheets keep
+  working with no car attributed.
+- **Car & Build is now the car's page.** Pick a chassis and see its totals (sessions,
+  laps, best lap, parts due), the parts fitted to it with remaining life, the setup sheets
+  attributed to it, and every session it has run. Two cars on one team stay separate.
+- **Parts & CAD is now framed as Service Life** — every tracked part across the team, with
+  a pointer to open a single chassis under Car & Build. Same data, two honest views.
+- Creating a session or a setup sheet now lets you say which car it belongs to.
+- **A real gap surfaced:** the UI's `+ Track a part` button called
+  `POST /api/racing/parts`, which had never been written — the function existed in the
+  module but was never routed. Clicking it would have failed. Found by the car-dossier
+  test expecting a fitted part to appear. Added, along with a route to refit a part to a
+  different chassis.
+- Suite: **81 passed.** Verified live: the demo chassis reports 4 sessions, 9 laps, best
+  1:39.512, 3 parts fitted and 1 due service.
+

@@ -71,6 +71,7 @@ class SetupIn(BaseModel):
     setup_key: str
     team_id: int
     track_id: int
+    car_id: Optional[int] = None
     baseline: str = ""
     revision_label: str = "A"
     notes: str = ""
@@ -306,6 +307,38 @@ async def apply_template(setup_id: int, template_id: int,
     """Lay a template's fields onto a sheet, ready to fill in."""
     n = racing.apply_template(ctx.db, setup_id, template_id)
     return {"message": "ok", "fields_added": n}
+
+
+class TrackPartIn(BaseModel):
+    part_id: int
+    team_id: int
+    car_id: Optional[int] = None
+    hours_used: float = Field(0, ge=0)
+    hours_limit: Optional[float] = None
+    cycles_limit: Optional[int] = None
+
+
+@router.post("/parts", status_code=201)
+async def track_part(body: TrackPartIn,
+                     ctx: RequestContext = Depends(require_ability("write"))):
+    """Start tracking service life for a PLM part on a car.
+
+    The UI offered this before the endpoint existed — caught by the car-dossier
+    tests, which expected a part to appear on a chassis.
+    """
+    return racing.track_part(ctx.db, body.model_dump())
+
+
+@router.patch("/parts/{part_usage_id}/car/{car_id}")
+async def move_part_to_car(part_usage_id: int, car_id: int,
+                           ctx: RequestContext = Depends(require_ability("write"))):
+    """Refit a tracked part to a different chassis."""
+    from sqlalchemy import update as _update
+    from ..db import part_usages
+    ctx.db.execute(_update(part_usages)
+                   .where(part_usages.c.id == part_usage_id)
+                   .values(car_id=car_id))
+    return {"message": "ok", "car_id": car_id}
 
 
 # ── Import existing team data (testing-notes follow-up) ──────────────────────

@@ -348,7 +348,7 @@ function notice(title,msg){confirmModal(title,msg,async()=>{},"OK");}
 
 /* ── state ─────────────────────────────────────────────────────────────── */
 const ST={me:null,teams:[],team:null,tracks:[],sessions:[],laps:[],setups:[],
-          checklists:[],parts:[],questions:[],series:[],templates:[],starters:[],
+          checklists:[],parts:[],questions:[],series:[],templates:[],starters:[],cars:[],dossier:null,
           published:new Set(),view:"overview"};
 
 async function loadAll(){
@@ -379,6 +379,7 @@ async function loadAll(){
       api(`/api/racing/parts?team_id=${ST.team.id}`).catch(()=>[])]);
     ST.sessions=s; ST.laps=l; ST.setups=su; ST.checklists=cl; ST.parts=pa;
     ST.questions=await api(`/api/racing/questions?team_id=${ST.team.id}`).catch(()=>[]);
+    ST.cars=await api(`/api/racing/cars?team_id=${ST.team.id}`).catch(()=>[]);
     const tpl=await api("/api/racing/templates").catch(()=>({templates:[],starters:[]}));
     ST.templates=tpl.templates||[]; ST.starters=tpl.starters||[];
   } else { ST.sessions=[];ST.laps=[];ST.setups=[];ST.checklists=[];ST.parts=[]; }
@@ -619,8 +620,11 @@ function viewChecklists(){
 function viewParts(){
   if(!ST.team) return needTeam();
   const col=s=>s==="over"?"var(--red)":s==="service_soon"?"var(--yellow)":"var(--green)";
-  return head("PLM parts + service life","Parts &amp; CAD",
-    "These are real PLM parts. Paddock adds which car runs them and their life against limit.",
+  return head("Service life","Parts &amp; CAD",
+    "Every tracked part across the team. These are real PLM parts — Paddock adds which car "
+    + "runs them and their life against limit. Open a car under "
+    + "<a style=\'color:var(--accent);cursor:pointer\' onclick=\'go(&quot;car&quot;)\'>Car &amp; Build</a> "
+    + "to see one chassis at a time.",
     `<button class="btn" onclick="importParts()">⭱ Import</button>
      <button class="btn" onclick="location.href='/app'">Open PLM</button>
      <button class="btn primary" onclick="trackPart()">+ Track a part</button>`)
@@ -642,19 +646,89 @@ function viewParts(){
 
 function viewCar(){
   if(!ST.team) return needTeam();
-  const cars=ST.team.cars||[], drv=ST.team.drivers||[];
-  return head("Chassis &amp; crew","Car &amp; Build",`The living spec of #${esc(ST.team.car_number)}.`,
-    `<button class="btn" onclick="addCar()">+ Car</button><button class="btn" onclick="addDriver()">+ Driver</button>`)
-  + `<div class="grid two">
-    <div class="card"><div class="card-h"><h3>Cars</h3></div>
-      ${cars.length?`<div class="pad">${cars.map(c=>`<div class="spec"><span class="k">${esc(c.chassis)}</span>
-        <span class="v" style="font-weight:400">${esc(c.model||"—")}</span></div>`).join("")}</div>`
-      :'<div class="empty">No car recorded.<div><button class="btn" style="margin-top:10px" onclick="addCar()">Add a car</button></div></div>'}</div>
-    <div class="card"><div class="card-h"><h3>Drivers</h3></div>
-      ${drv.length?`<div class="pad">${drv.map(d=>`<div class="spec"><span class="k">${esc(d.name)}</span>
-        <span class="v" style="font-weight:400">${esc(d.country||"—")}</span></div>`).join("")}</div>`
-      :'<div class="empty">No drivers.<div><button class="btn" style="margin-top:10px" onclick="addDriver()">Add a driver</button></div></div>'}</div></div>`;
+  const d=ST.dossier;
+  if(d) return carDossier(d);
+  const drv=ST.team.drivers||[];
+  return head("Chassis &amp; crew","Car &amp; Build",
+    "A car is the spine: what is fitted to it, what it has run, and how it was set up.",
+    `<button class="btn" onclick="addDriver()">+ Driver</button>
+     <button class="btn primary" onclick="addCar()">+ Car</button>`)
+  + (ST.cars.length?`<div class="grid tracks">${ST.cars.map(c=>`
+      <div class="card trackcard" onclick="openCar(${c.id})">
+        <div class="top"><div><h4>${esc(c.chassis)}</h4>
+          <div class="loc">${esc(c.model||"—")}</div></div>
+          <span class="pill neutral">#${esc(ST.team.car_number)}</span></div>
+        <div class="foot"><span>${esc(c.homologation||"no homologation recorded")}</span>
+          <span class="mono" style="color:var(--accent)">Open →</span></div></div>`).join("")}</div>`
+    : empty("No car recorded",
+        "Add the chassis you run. Sessions, parts and setup sheets all attach to a car.",
+        `<div><button class="btn primary" onclick="addCar()">Add a car</button></div>`))
+  + `<div class="card" style="margin-top:14px"><div class="card-h"><h3>Drivers</h3>
+      <button class="pk-act" onclick="addDriver()">+ Driver</button></div>
+      ${drv.length?`<div class="pad">${drv.map(x=>`<div class="spec">
+        <span class="k">${esc(x.name)}</span>
+        <span class="v" style="font-weight:400">${esc(x.country||"—")}</span></div>`).join("")}</div>`
+      :'<div class="empty">No drivers yet.</div>'}</div>`;
 }
+
+function carDossier(d){
+  const col=s=>s==="over"?"var(--red)":s==="service_soon"?"var(--yellow)":"var(--green)";
+  const t=d.totals;
+  const kpi=(k,v,sub,c)=>`<div class="card pad kpi"><div class="eyebrow">${esc(k)}</div>
+    <div class="big"${c?` style="color:${c}"`:""}>${v}</div><div class="sub">${esc(sub)}</div></div>`;
+  return `<span class="back" style="cursor:pointer;color:var(--accent);font-weight:600;display:inline-block;margin-bottom:12px"
+      onclick="closeCar()">← All cars</span>`
+    + head("Chassis", d.car.chassis,
+        `${esc(d.car.model||"—")}${d.car.homologation?` · ${esc(d.car.homologation)}`:""}`,
+        `<button class="btn" onclick="importParts()">⭱ Import parts</button>`)
+    + `<div class="grid kpis" style="margin-bottom:14px">
+      ${kpi("Best lap",fmt(t.best_lap_ms),`${t.laps} laps in ${t.sessions} sessions`,"var(--purple)")}
+      ${kpi("Sessions",t.sessions,"run on this chassis")}
+      ${kpi("Parts fitted",t.parts_fitted,"tracked for service life")}
+      ${kpi("Due service",t.parts_due,t.parts_due?"needs attention":"all within life",
+            t.parts_due?"var(--yellow)":null)}</div>
+    <div class="grid two">
+      <div class="card"><div class="card-h"><h3>Fitted parts &amp; service life</h3>
+        <span class="pill team">Team</span></div>
+        ${d.parts.length?`<div class="tablewrap"><table>
+          <thead><tr><th>Part</th><th>Rev</th><th class="num">Used</th><th>Life</th><th>Status</th></tr></thead>
+          <tbody>${d.parts.map(p=>`<tr style="cursor:pointer"
+            onclick="logHours(${p.id},'${esc(p.part_number)}',${p.hours_used})">
+            <td><span class="mono">${esc(p.part_number)}</span><div class="hint">${esc(p.part_name)}</div></td>
+            <td class="mono">${esc(p.part_revision)}</td>
+            <td class="num">${p.hours_used} h${p.hours_limit?` / ${p.hours_limit}`:""}</td>
+            <td><span class="lifebar"><i style="width:${Math.min(p.life_pct??0,100)}%;background:${col(p.status)}"></i></span></td>
+            <td><span class="pill ${p.status==="over"?"crit":p.status==="service_soon"?"warn":"ok"}">${esc(p.status.replace("_"," "))}</span></td>
+            </tr>`).join("")}</tbody></table></div>`
+        :`<div class="empty">Nothing tracked on this chassis yet.
+          <div><button class="btn" style="margin-top:10px" onclick="trackPart()">Track a part</button>
+          <button class="btn" style="margin:10px 0 0 8px" onclick="importParts()">Import a spreadsheet</button></div></div>`}
+      </div>
+      <div class="card"><div class="card-h"><h3>Setup sheets on this car</h3></div>
+        ${d.setups.length?`<div class="pad">${d.setups.map(x=>`<div class="spec" style="cursor:pointer"
+          onclick="go('setups');openSetup('${esc(x.setup_key)}')">
+          <span class="k"><span class="mono">${esc(x.setup_key)}</span> · ${esc(x.track)}</span>
+          <span class="v" style="font-weight:400">rev ${esc(x.revision_label)} ${visPill(x.visibility)}</span></div>`).join("")}</div>`
+        :`<div class="empty">No sheets attributed to this chassis.
+          <div class="hint" style="margin-top:8px">Set the car when you create a sheet and it will appear here.</div></div>`}
+      </div></div>
+    <div class="card" style="margin-top:14px"><div class="card-h"><h3>Sessions run</h3></div>
+      ${d.sessions.length?`<div class="tablewrap"><table>
+        <thead><tr><th>Session</th><th>Event</th><th>Track</th><th class="num">Laps</th><th class="num">Best</th><th>Fans</th></tr></thead>
+        <tbody>${d.sessions.map(x=>`<tr>
+          <td class="mono" style="text-transform:uppercase">${esc(x.session_type)}</td>
+          <td>${esc(x.event)}</td><td>${esc(x.track)}</td>
+          <td class="num">${x.lap_count}</td><td class="num">${fmt(x.best_ms)}</td>
+          <td>${visPill(x.visibility)}</td></tr>`).join("")}</tbody></table></div>`
+      :`<div class="empty">This chassis has not run yet. Create a session and pick this car.</div>`}
+    </div>`;
+}
+
+async function openCar(id){
+  try{ ST.dossier=await api(`/api/racing/cars/${id}`); render(); window.scrollTo({top:0}); }
+  catch(e){ toast(e.message,true); }
+}
+function closeCar(){ ST.dossier=null; render(); }
 
 /* ── chart (inline SVG, drawn from real laps) ───────────────────────────── */
 function drawChart(el,laps){
@@ -724,6 +798,8 @@ function newSession(){
     {label:"Circuit",name:"track_id",type:"select",options:ST.tracks.map(t=>[t.id,t.name])},
     {label:"Session type",name:"session_type",type:"select",
      options:[["fp1","FP1"],["fp2","FP2"],["fp3","FP3"],["qual","Qualifying"],["warmup","Warmup"],["race","Race"],["test","Test"]]},
+    ...(ST.cars.length?[{label:"Car",name:"car_id",type:"select",
+      options:[["","— not specified —"],...ST.cars.map(c=>[c.id,`${c.chassis} (${c.model||"—"})`])]}]:[]),
     {label:"Visibility",name:"visibility",type:"select",options:[["public","Public — fans can see it"],["team","Team only"]]},
   ],async v=>{
     let eid;
@@ -733,6 +809,7 @@ function newSession(){
         name:v.newname, series_id:v.series_id?+v.series_id:null})).id;
     } else eid=+v.event;
     await api("/api/racing/sessions","POST",{event_id:eid,session_type:v.session_type,
+      car_id:v.car_id?+v.car_id:null,
       visibility:v.visibility,session_date:new Date().toISOString()});
     toast("Session created");
   },"Create");
@@ -773,13 +850,16 @@ function newSetup(){
   modal("New setup sheet",[
     {label:"Key",name:"setup_key",ph:"WG-2025-Q"},
     {label:"Track",name:"track_id",type:"select",options:ST.tracks.map(t=>[t.id,t.name])},
+    ...(ST.cars.length?[{label:"Car",name:"car_id",type:"select",
+      options:[["","— not specified —"],...ST.cars.map(c=>[c.id,c.chassis])]}]:[]),
     {label:"Baseline",name:"baseline",ph:"WG-A"},
     {label:"Revision",name:"revision_label",value:"A"},
     {label:"Notes",name:"notes",type:"textarea"},
   ],async v=>{
     if(!v.setup_key.trim()) throw new Error("A sheet needs a key");
     await api("/api/racing/setups","POST",{setup_key:v.setup_key,team_id:ST.team.id,
-      track_id:+v.track_id,baseline:v.baseline,revision_label:v.revision_label||"A",notes:v.notes});
+      track_id:+v.track_id,car_id:v.car_id?+v.car_id:null,baseline:v.baseline,
+      revision_label:v.revision_label||"A",notes:v.notes});
     ST._setupKey=v.setup_key; toast("Sheet created");
   },"Create");
 }

@@ -303,6 +303,7 @@ def create_setup(db: TenantDB, data: dict, user_id: int) -> dict:
     row = db.execute(insert(setups).values(
         org_id=db.org_id, setup_key=data["setup_key"], team_id=data["team_id"],
         track_id=data["track_id"], run_session_id=data.get("run_session_id"),
+        car_id=data.get("car_id"),
         baseline=data.get("baseline", ""), revision_label=data.get("revision_label", "A"),
         visibility=data.get("visibility", "team"), engineer_id=user_id,
         notes=data.get("notes", ""),
@@ -605,3 +606,76 @@ def import_parts(db: TenantDB, team_id: int, car_id: Optional[int],
                 hours_used=r["hours_used"], hours_limit=r["hours_limit"]))
     return {"parts_created": created, "usages_updated": updated,
             "total": len(rows)}
+
+
+def car_dossier(db: TenantDB, car_id: int) -> Optional[dict]:
+    """Everything that hangs off one car — the answer to "what is on this car,
+    what has it run, and what was it set up like?"
+
+    The database already joined these; nothing showed them together, which is
+    why the Car & Build and Parts & CAD screens read as disconnected fragments.
+    """
+    car = db.execute(select(cars).where(cars.c.id == car_id)).first()
+    if not car:
+        return None
+    car = dict(car._mapping)
+
+    team = db.execute(select(teams.c.id, teams.c.name, teams.c.car_number,
+                             teams.c.series, teams.c["class"])
+                      .where(teams.c.id == car["team_id"])).first()
+
+    sessions = _rows(db.execute(
+        select(run_sessions.c.id, run_sessions.c.session_type,
+               run_sessions.c.session_date, run_sessions.c.visibility,
+               events.c.name.label("event"), tracks.c.name.label("track"),
+               func.count(laps.c.id).label("lap_count"),
+               func.min(laps.c.lap_time_ms).label("best_ms"))
+        .select_from(run_sessions.join(events, events.c.id == run_sessions.c.event_id)
+                     .join(tracks, tracks.c.id == events.c.track_id)
+                     .outerjoin(laps, laps.c.run_session_id == run_sessions.c.id))
+        .where(run_sessions.c.car_id == car_id)
+        .group_by(run_sessions.c.id, run_sessions.c.session_type,
+                  run_sessions.c.session_date, run_sessions.c.visibility,
+                  events.c.name, tracks.c.name)
+        .order_by(run_sessions.c.session_date.desc())))
+
+    fitted = _rows(db.execute(
+        select(part_usages.c.id, part_usages.c.hours_used, part_usages.c.hours_limit,
+               part_usages.c.status, parts.c.part_number, parts.c.part_name,
+               parts.c.part_revision, parts.c.id.label("plm_part_id"))
+        .select_from(part_usages.join(parts, parts.c.id == part_usages.c.part_id))
+        .where(part_usages.c.car_id == car_id)
+        .order_by(part_usages.c.status.desc(), part_usages.c.hours_used.desc())))
+    for p in fitted:
+        lim = p.get("hours_limit")
+        p["life_pct"] = round(100 * p["hours_used"] / lim) if lim else None
+
+    sheets = _rows(db.execute(
+        select(setups.c.id, setups.c.setup_key, setups.c.revision_label,
+               setups.c.visibility, tracks.c.name.label("track"))
+        .select_from(setups.join(tracks, tracks.c.id == setups.c.track_id))
+        .where(setups.c.car_id == car_id)
+        .order_by(setups.c.created_at.desc())))
+
+    best = min((s["best_ms"] for s in sessions if s["best_ms"]), default=None)
+    return {
+        "car": car,
+        "team": dict(team._mapping) if team else None,
+        "sessions": sessions,
+        "parts": fitted,
+        "setups": sheets,
+        "totals": {
+            "sessions": len(sessions),
+            "laps": sum(s["lap_count"] or 0 for s in sessions),
+            "best_lap_ms": best,
+            "parts_fitted": len(fitted),
+            "parts_due": sum(1 for p in fitted if p["status"] != "ok"),
+        },
+    }
+
+
+def list_cars(db: TenantDB, team_id: Optional[int] = None) -> list[dict]:
+    stmt = select(cars).order_by(cars.c.chassis)
+    if team_id:
+        stmt = stmt.where(cars.c.team_id == team_id)
+    return _rows(db.execute(stmt))

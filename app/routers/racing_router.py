@@ -113,3 +113,19 @@ async def list_templates(ctx: RequestContext = Depends(require_ability("view")))
     return {"templates": racing.list_templates(ctx.db),
             "starters": list(racing.STARTER_TEMPLATES.keys())}
 
+
+@router.get("/cars")
+async def list_cars(team_id: int | None = Query(None),
+                    ctx: RequestContext = Depends(require_ability("view"))):
+    return racing.list_cars(ctx.db, team_id=team_id)
+
+
+@router.get("/cars/{car_id}")
+async def car_dossier(car_id: int, ctx: RequestContext = Depends(require_ability("view"))):
+    """Everything that hangs off one car: what is fitted, what it has run, and
+    how it was set up."""
+    d = racing.car_dossier(ctx.db, car_id)
+    if not d:
+        raise HTTPException(404, "Car not found")
+    return d
+

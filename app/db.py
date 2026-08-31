@@ -370,6 +370,7 @@ setups = Table(
     Column("engineer_id", BigInteger, ForeignKey("users.id", ondelete="SET NULL")),
     Column("notes", Text, nullable=False, server_default=text("''")),
     Column("template_id", BigInteger, ForeignKey("setup_templates.id", ondelete="SET NULL")),
+    Column("car_id", BigInteger, ForeignKey("cars.id", ondelete="SET NULL")),
     _created(),
     UniqueConstraint("org_id", "setup_key", name="uq_setups_org_setup_key"),
     CheckConstraint("visibility IN ('public','team')", name="ck_setups_visibility"),
