@@ -89,3 +89,27 @@ async def list_part_usages(
 ):
     """Life-limited components: PLM parts joined to their racing service life."""
     return racing.list_part_usages(ctx.db, team_id=team_id)
+
+
+# ── Series & setup templates (Phase 3, step 7) ───────────────────────────────
+
+@router.get("/series")
+async def list_series(ctx: RequestContext = Depends(require_ability("view"))):
+    """The championships a team can run in — reference data, not per-org."""
+    return racing.list_series(ctx.db)
+
+
+@router.get("/series/{series_row_id}/tracks")
+async def series_tracks(series_row_id: int,
+                        ctx: RequestContext = Depends(require_ability("view"))):
+    """Circuits this series visits, so picking a series narrows the track list."""
+    return racing.tracks_for_series(ctx.db, series_row_id)
+
+
+@router.get("/templates")
+async def list_templates(ctx: RequestContext = Depends(require_ability("view"))):
+    """This org's setup templates, plus the built-in starter field lists it can
+    instantiate if it has none yet."""
+    return {"templates": racing.list_templates(ctx.db),
+            "starters": list(racing.STARTER_TEMPLATES.keys())}
+

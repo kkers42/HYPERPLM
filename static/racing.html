@@ -348,12 +348,15 @@ function notice(title,msg){confirmModal(title,msg,async()=>{},"OK");}
 
 /* ── state ─────────────────────────────────────────────────────────────── */
 const ST={me:null,teams:[],team:null,tracks:[],sessions:[],laps:[],setups:[],
-          checklists:[],parts:[],questions:[],published:new Set(),view:"overview"};
+          checklists:[],parts:[],questions:[],series:[],templates:[],starters:[],
+          published:new Set(),view:"overview"};
 
 async function loadAll(){
-  const [me,teams,tracks,pub]=await Promise.all([
+  const [me,teams,tracks,pub,series]=await Promise.all([
     api("/auth/me").catch(()=>null), api("/api/racing/teams"),
-    api("/api/racing/tracks"), fetch("/api/public/teams").then(r=>r.json()).catch(()=>[])]);
+    api("/api/racing/tracks"), fetch("/api/public/teams").then(r=>r.json()).catch(()=>[]),
+    api("/api/racing/series").catch(()=>[])]);
+  ST.series=series;
   ST.me=me; ST.teams=teams; ST.tracks=tracks;
   ST.published=new Set(pub.map(p=>String(p.car_number)));
   const saved=+localStorage.getItem("pk_team")||0;
@@ -376,6 +379,8 @@ async function loadAll(){
       api(`/api/racing/parts?team_id=${ST.team.id}`).catch(()=>[])]);
     ST.sessions=s; ST.laps=l; ST.setups=su; ST.checklists=cl; ST.parts=pa;
     ST.questions=await api(`/api/racing/questions?team_id=${ST.team.id}`).catch(()=>[]);
+    const tpl=await api("/api/racing/templates").catch(()=>({templates:[],starters:[]}));
+    ST.templates=tpl.templates||[]; ST.starters=tpl.starters||[];
   } else { ST.sessions=[];ST.laps=[];ST.setups=[];ST.checklists=[];ST.parts=[]; }
 }
 async function refresh(){ await loadAll(); render(); }
@@ -562,6 +567,17 @@ function viewSetups(){
       </tbody></table></div>`
     :empty("No setup sheets","Record corner weights, dampers, alignment, aero and tires per track.",
       `<div><button class="btn primary" onclick="newSetup()">Create a sheet</button></div>`)}</div>
+    <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Setup templates</h3>
+      <button class="pk-act go" onclick="newTemplate()">+ Template</button></div>
+      ${ST.templates.length?`<div class="pad">${ST.templates.map(t=>`<div class="spec">
+        <span class="k">${esc(t.name)}${t.series?` <span class="hint">· ${esc(t.series)}</span>`:""}</span>
+        <span class="v" style="font-weight:400">${t.fields.length} fields</span></div>`).join("")}
+        <p class="hint" style="margin:10px 0 0">Create a sheet, then apply a template to lay its fields out.</p></div>`
+      :`<div class="empty"><b>No templates yet</b>A template is your team's own field list —
+        an IndyCar sheet is not a GT3 sheet. Start from a built-in list and edit it.
+        <div>${ST.starters.map(k=>`<button class="btn" style="margin:8px 4px 0"
+          onclick="useStarter('${esc(k)}')">Use ${esc(k)}</button>`).join("")}</div></div>`}
+    </div>
     <div class="card" id="setupPane">${s?setupPane(s):'<div class="card-h"><h3>Sheet detail</h3></div><div class="empty">Select a sheet.</div>'}</div></div>`;
 }
 function setupPane(d){
@@ -577,7 +593,9 @@ function setupPane(d){
       ${d.notes?`<p class="hint" style="margin-top:12px;line-height:1.55">${esc(d.notes)}</p>`:""}
       <div style="margin-top:14px;display:flex;gap:8px">
         <button class="btn" onclick="addValue(${d.id})">+ Value</button>
-        <button class="btn" onclick="cloneSetup('${esc(d.setup_key)}')">Clone as revision</button></div></div>`;
+        <button class="btn" onclick="cloneSetup('${esc(d.setup_key)}')">Clone as revision</button>
+        ${ST.templates.length?`<button class="btn" onclick="applyTemplate(${d.id})">Apply template</button>`:""}
+        </div></div>`;
 }
 
 function viewChecklists(){
@@ -693,11 +711,13 @@ function addDriver(){
 function newSession(){
   if(!ST.tracks.length) return notice("No circuits","The track library is empty.");
   const evs=[...new Map(ST.sessions.map(s=>[s.event,s])).values()];
-  modal("New session",[
+  const ov=modal("New session",[
     {label:"Event",name:"event",type:"select",
      options:[...evs.map(e=>[String(e.event_id),e.event]),["__new","+ New event…"]]},
-    {label:"New event name",name:"newname",ph:"Six Hours of The Glen"},
-    {label:"Track (new events only)",name:"track_id",type:"select",options:ST.tracks.map(t=>[t.id,t.name])},
+    {label:"Series (new events)",name:"series_id",type:"select",
+     options:[["","— any / private test —"],...ST.series.map(x=>[x.id,x.name])]},
+    {label:"Event name",name:"newname",ph:"Six Hours of The Glen"},
+    {label:"Circuit",name:"track_id",type:"select",options:ST.tracks.map(t=>[t.id,t.name])},
     {label:"Session type",name:"session_type",type:"select",
      options:[["fp1","FP1"],["fp2","FP2"],["fp3","FP3"],["qual","Qualifying"],["warmup","Warmup"],["race","Race"],["test","Test"]]},
     {label:"Visibility",name:"visibility",type:"select",options:[["public","Public — fans can see it"],["team","Team only"]]},
@@ -705,12 +725,20 @@ function newSession(){
     let eid;
     if(v.event==="__new"){
       if(!v.newname.trim()) throw new Error("Name the event");
-      eid=(await api("/api/racing/events","POST",{team_id:ST.team.id,track_id:+v.track_id,name:v.newname})).id;
+      eid=(await api("/api/racing/events","POST",{team_id:ST.team.id,track_id:+v.track_id,
+        name:v.newname, series_id:v.series_id?+v.series_id:null})).id;
     } else eid=+v.event;
     await api("/api/racing/sessions","POST",{event_id:eid,session_type:v.session_type,
       visibility:v.visibility,session_date:new Date().toISOString()});
     toast("Session created");
   },"Create");
+  // choosing a series narrows the circuit list to the ones it actually visits
+  const sel=ov.querySelector("[name=series_id]"), trk=ov.querySelector("[name=track_id]");
+  sel.onchange=async()=>{
+    const list = sel.value ? await api(`/api/racing/series/${sel.value}/tracks`).catch(()=>ST.tracks)
+                           : ST.tracks;
+    trk.innerHTML=list.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join("");
+  };
 }
 function logLap(){
   if(!ST.sessions.length) return notice("No sessions yet",
@@ -851,6 +879,41 @@ function resolveQ(qid){
     const r=await api(`/api/racing/questions/${qid}/resolve?team_id=${ST.team.id}`,"POST",v);
     toast(r.already_resolved?"Already resolved":`Resolved — ${r.awarded} of ${r.picks} fans paid`);
   },"Resolve");
+}
+
+
+async function useStarter(kind){
+  try{ await api("/api/racing/templates/starter","POST",{kind});
+       toast(`${kind} template created — edit it as your own`); await refresh(); }
+  catch(e){ toast(e.message,true); }
+}
+function newTemplate(){
+  modal("New setup template",[
+    {label:"Name",name:"name",ph:"GT3 — our baseline"},
+    {label:"Series (optional)",name:"series_id",type:"select",
+     options:[["","— any —"],...ST.series.map(x=>[x.id,x.name])]},
+    {label:"Fields — one per line as  Group | Field | Unit",name:"fields",type:"textarea"},
+  ],async v=>{
+    if(!v.name.trim()) throw new Error("Name the template");
+    const fields=(v.fields||"").split("\n").map(l=>l.trim()).filter(Boolean).map(l=>{
+      const [g,k,u]=l.split("|").map(x=>(x||"").trim());
+      return k?{group_name:g,attr_key:k,unit:u||""}:{group_name:"",attr_key:g,unit:""};
+    });
+    if(!fields.length) throw new Error("Add at least one field");
+    await api("/api/racing/templates","POST",{name:v.name,
+      series_id:v.series_id?+v.series_id:null, fields});
+    toast("Template created");
+  },"Create");
+}
+function applyTemplate(setupId){
+  modal("Apply a template",[
+    {label:"Template",name:"template_id",type:"select",
+     options:ST.templates.map(t=>[t.id,`${t.name} (${t.fields.length} fields)`])},
+  ],async v=>{
+    const r=await api(`/api/racing/setups/${setupId}/apply-template/${+v.template_id}`,"POST");
+    toast(`${r.fields_added} fields laid out`);
+    ST._setupKey=ST._setup?.setup_key;
+  },"Apply");
 }
 
 /* ── render ────────────────────────────────────────────────────────────── */

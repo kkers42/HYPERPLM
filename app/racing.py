@@ -254,6 +254,7 @@ def create_event(db: TenantDB, data: dict) -> dict:
     row = db.execute(insert(events).values(
         org_id=db.org_id, team_id=data["team_id"], track_id=data["track_id"],
         name=data["name"], round=data.get("round"), starts_on=data.get("starts_on"),
+        series_id=data.get("series_id"),
     ).returning(events)).first()
     return dict(row._mapping)
 
@@ -389,3 +390,142 @@ def set_team_public(db: TenantDB, team_id: int, is_public: bool) -> None:
         raise PermissionError("team not in this organization")
     db.execute(update(team_directory).where(team_directory.c.team_id == team_id)
                .values(is_public=1 if is_public else 0))
+
+
+# ══ SERIES & SETUP TEMPLATES (Phase 3, step 7) ════════════════════════════════
+# Raised in testing: sessions should let you pick a series and event rather than
+# retyping strings, and "IndyCar will be different than IMSA" — so a team needs
+# its own setup field lists, not one hardcoded shape.
+
+from .db import series as series_tbl  # noqa: E402
+from .db import setup_template_fields, setup_templates  # noqa: E402
+
+# Starter field lists offered when a team has no template yet. These are real
+# engineering fields for each discipline, not sample data — a team can take one
+# and edit it rather than starting from a blank sheet.
+STARTER_TEMPLATES = {
+    "GT3 / sports car": [
+        ("Corner weights", "LF", "kg"), ("Corner weights", "RF", "kg"),
+        ("Corner weights", "LR", "kg"), ("Corner weights", "RR", "kg"),
+        ("Corner weights", "Cross", "%"), ("Corner weights", "Total w/ driver", "kg"),
+        ("Springs & dampers", "Spring front", "N/mm"),
+        ("Springs & dampers", "Spring rear", "N/mm"),
+        ("Springs & dampers", "Bump LS front", "clk"),
+        ("Springs & dampers", "Bump LS rear", "clk"),
+        ("Springs & dampers", "Rebound LS front", "clk"),
+        ("Springs & dampers", "Rebound LS rear", "clk"),
+        ("Springs & dampers", "ARB front", ""), ("Springs & dampers", "ARB rear", ""),
+        ("Alignment", "Camber LF", "deg"), ("Alignment", "Camber RF", "deg"),
+        ("Alignment", "Camber LR", "deg"), ("Alignment", "Camber RR", "deg"),
+        ("Alignment", "Toe front", "mm"), ("Alignment", "Toe rear", "mm"),
+        ("Alignment", "Caster", "deg"),
+        ("Ride & aero", "Ride height front", "mm"), ("Ride & aero", "Ride height rear", "mm"),
+        ("Ride & aero", "Rake", "mm"), ("Ride & aero", "Rear wing", ""),
+        ("Ride & aero", "Front splitter", ""),
+        ("Brakes & diff", "Brake bias", "%F"), ("Brakes & diff", "Brake ducts", "%"),
+        ("Brakes & diff", "Diff preload", "Nm"),
+        ("Tires", "Compound", ""), ("Tires", "Cold pressure LF", "bar"),
+        ("Tires", "Cold pressure RF", "bar"), ("Tires", "Cold pressure LR", "bar"),
+        ("Tires", "Cold pressure RR", "bar"), ("Tires", "Target hot", "bar"),
+        ("Conditions", "Air temp", "C"), ("Conditions", "Track temp", "C"),
+        ("Conditions", "Fuel load", "L"),
+    ],
+    "IndyCar / open wheel": [
+        ("Corner weights", "LF", "lb"), ("Corner weights", "RF", "lb"),
+        ("Corner weights", "LR", "lb"), ("Corner weights", "RR", "lb"),
+        ("Corner weights", "Cross", "%"),
+        ("Springs & bars", "Spring front", "lb/in"), ("Springs & bars", "Spring rear", "lb/in"),
+        ("Springs & bars", "Third spring", "lb/in"),
+        ("Springs & bars", "Front bar", ""), ("Springs & bars", "Rear bar", ""),
+        ("Dampers", "Bump front", "clk"), ("Dampers", "Bump rear", "clk"),
+        ("Dampers", "Rebound front", "clk"), ("Dampers", "Rebound rear", "clk"),
+        ("Alignment", "Camber LF", "deg"), ("Alignment", "Camber RF", "deg"),
+        ("Alignment", "Toe front", "in"), ("Alignment", "Toe rear", "in"),
+        ("Alignment", "Stagger", "in"),
+        ("Aero", "Front wing angle", "deg"), ("Aero", "Rear wing angle", "deg"),
+        ("Aero", "Wicker", "in"), ("Aero", "Ride height front", "in"),
+        ("Aero", "Ride height rear", "in"),
+        ("Weight jacker", "Weight jacker", "turns"),
+        ("Brakes & diff", "Brake bias", "%F"), ("Brakes & diff", "Anti-roll setting", ""),
+        ("Tires", "Compound", ""), ("Tires", "Cold pressure LF", "psi"),
+        ("Tires", "Cold pressure RF", "psi"), ("Tires", "Cold pressure LR", "psi"),
+        ("Tires", "Cold pressure RR", "psi"),
+        ("Powertrain", "Boost", "kPa"), ("Powertrain", "Fuel load", "gal"),
+        ("Conditions", "Air temp", "F"), ("Conditions", "Track temp", "F"),
+    ],
+}
+
+
+def list_series(db: TenantDB) -> list[dict]:
+    return _rows(db.execute(select(series_tbl).order_by(series_tbl.c.name)))
+
+
+def tracks_for_series(db: TenantDB, series_row_id: int) -> list[dict]:
+    """The circuits a series actually visits — derived from the tag we already
+    hold on each track, rather than an invented calendar."""
+    tag = db.execute(select(series_tbl.c.track_tag)
+                     .where(series_tbl.c.id == series_row_id)).scalar()
+    if not tag:
+        return list_tracks(db)
+    return list_tracks(db, series=tag)
+
+
+def list_templates(db: TenantDB) -> list[dict]:
+    out = _rows(db.execute(
+        select(setup_templates.c.id, setup_templates.c.name,
+               setup_templates.c.description, setup_templates.c.series_id,
+               series_tbl.c.name.label("series"))
+        .select_from(setup_templates.outerjoin(
+            series_tbl, series_tbl.c.id == setup_templates.c.series_id))
+        .order_by(setup_templates.c.name)))
+    for t in out:
+        t["fields"] = _rows(db.execute(
+            select(setup_template_fields.c.id, setup_template_fields.c.group_name,
+                   setup_template_fields.c.attr_key, setup_template_fields.c.unit,
+                   setup_template_fields.c.default_value)
+            .where(setup_template_fields.c.template_id == t["id"])
+            .order_by(setup_template_fields.c.field_order)))
+    return out
+
+
+def create_template(db: TenantDB, name: str, fields: list[dict],
+                    series_row_id: Optional[int] = None,
+                    description: str = "", user_id: Optional[int] = None) -> dict:
+    row = db.execute(insert(setup_templates).values(
+        org_id=db.org_id, name=name, series_id=series_row_id,
+        description=description, created_by=user_id).returning(setup_templates)).first()
+    tpl = dict(row._mapping)
+    for i, f in enumerate(fields):
+        db.execute(insert(setup_template_fields).values(
+            org_id=db.org_id, template_id=tpl["id"],
+            group_name=f.get("group_name", ""), attr_key=f["attr_key"],
+            unit=f.get("unit", ""), default_value=f.get("default_value", ""),
+            field_order=i))
+    return tpl
+
+
+def create_starter_template(db: TenantDB, kind: str, series_row_id: Optional[int] = None,
+                            user_id: Optional[int] = None) -> dict:
+    """Instantiate one of the built-in field lists so a team can edit rather than
+    invent. The rows become the team's own — nothing is shared or locked."""
+    spec = STARTER_TEMPLATES.get(kind)
+    if not spec:
+        raise ValueError(f"Unknown starter template: {kind}")
+    fields = [{"group_name": g, "attr_key": k, "unit": u} for g, k, u in spec]
+    return create_template(db, kind, fields, series_row_id,
+                           f"Starter field list for {kind}", user_id)
+
+
+def apply_template(db: TenantDB, setup_id: int, template_id: int) -> int:
+    """Copy a template's fields onto a sheet as empty values, ready to fill."""
+    fields = _rows(db.execute(
+        select(setup_template_fields.c.group_name, setup_template_fields.c.attr_key,
+               setup_template_fields.c.unit, setup_template_fields.c.default_value)
+        .where(setup_template_fields.c.template_id == template_id)
+        .order_by(setup_template_fields.c.field_order)))
+    for i, f in enumerate(fields):
+        set_setup_value(db, setup_id, f["attr_key"], f["default_value"],
+                        f["group_name"], f["unit"], i)
+    db.execute(update(setups).where(setups.c.id == setup_id)
+               .values(template_id=template_id))
+    return len(fields)

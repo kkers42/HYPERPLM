@@ -48,6 +48,7 @@ class EventIn(BaseModel):
     name: str
     round: Optional[int] = None
     starts_on: Optional[str] = None
+    series_id: Optional[int] = None
 
 
 class SessionIn(BaseModel):
@@ -259,3 +260,50 @@ async def resolve_question(qid: int, team_id: int, body: ResolveIn,
         return predictions.resolve(ctx.db, qid, team_id, body.correct_answer)
     except predictions.PredictionError as e:
         raise HTTPException(400, str(e))
+
+
+class TemplateField(BaseModel):
+    group_name: str = ""
+    attr_key: str
+    unit: str = ""
+    default_value: str = ""
+
+
+class TemplateIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    series_id: Optional[int] = None
+    description: str = ""
+    fields: list[TemplateField] = []
+
+
+class StarterIn(BaseModel):
+    kind: str
+    series_id: Optional[int] = None
+
+
+@router.post("/templates", status_code=201)
+async def create_template(body: TemplateIn,
+                          ctx: RequestContext = Depends(require_ability("write"))):
+    return racing.create_template(
+        ctx.db, body.name, [f.model_dump() for f in body.fields],
+        body.series_id, body.description, ctx.user["id"])
+
+
+@router.post("/templates/starter", status_code=201)
+async def create_starter(body: StarterIn,
+                         ctx: RequestContext = Depends(require_ability("write"))):
+    """Instantiate a built-in field list as this org's own editable template."""
+    try:
+        return racing.create_starter_template(ctx.db, body.kind, body.series_id,
+                                              ctx.user["id"])
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/setups/{setup_id}/apply-template/{template_id}")
+async def apply_template(setup_id: int, template_id: int,
+                         ctx: RequestContext = Depends(require_ability("write"))):
+    """Lay a template's fields onto a sheet, ready to fill in."""
+    n = racing.apply_template(ctx.db, setup_id, template_id)
+    return {"message": "ok", "fields_added": n}
+

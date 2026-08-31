@@ -309,6 +309,7 @@ events = Table(
     Column("name", Text, nullable=False),
     Column("round", Integer),
     Column("starts_on", Date),
+    Column("series_id", BigInteger, ForeignKey("series.id")),
     _created(),
     Index("ix_events_org_team", "org_id", "team_id"),
     Index("ix_events_track_id", "track_id"),
@@ -368,6 +369,7 @@ setups = Table(
     Column("visibility", Text, nullable=False, server_default=text("'team'")),
     Column("engineer_id", BigInteger, ForeignKey("users.id", ondelete="SET NULL")),
     Column("notes", Text, nullable=False, server_default=text("''")),
+    Column("template_id", BigInteger, ForeignKey("setup_templates.id", ondelete="SET NULL")),
     _created(),
     UniqueConstraint("org_id", "setup_key", name="uq_setups_org_setup_key"),
     CheckConstraint("visibility IN ('public','team')", name="ck_setups_visibility"),
@@ -563,6 +565,49 @@ prediction_questions = Table(
 )
 
 
+# ── Series — global reference data (championships), read with no org context ──
+series = Table(
+    "series", metadata,
+    _pk(),
+    Column("series_id", Text, nullable=False, unique=True),
+    Column("name", Text, nullable=False),
+    Column("track_tag", Text, nullable=False, server_default=text("''")),
+    Column("discipline", Text, nullable=False, server_default=text("''")),
+    # where a dated calendar came from, so an imported round is never confused
+    # with one somebody typed in
+    Column("calendar_source", Text),
+    _created(),
+)
+
+# ── Setup templates — per-org field lists (a GT3 sheet differs from IndyCar) ──
+setup_templates = Table(
+    "setup_templates", metadata,
+    _pk(),
+    _org_id(),
+    Column("name", Text, nullable=False),
+    Column("series_id", BigInteger, ForeignKey("series.id")),
+    Column("description", Text, nullable=False, server_default=text("''")),
+    Column("created_by", BigInteger, ForeignKey("users.id", ondelete="SET NULL")),
+    _created(),
+    UniqueConstraint("org_id", "name", name="uq_setup_templates_org_name"),
+    Index("ix_setup_templates_org", "org_id"),
+)
+
+setup_template_fields = Table(
+    "setup_template_fields", metadata,
+    _pk(),
+    _org_id(),
+    Column("template_id", BigInteger,
+           ForeignKey("setup_templates.id", ondelete="CASCADE"), nullable=False),
+    Column("group_name", Text, nullable=False, server_default=text("''")),
+    Column("attr_key", Text, nullable=False),
+    Column("unit", Text, nullable=False, server_default=text("''")),
+    Column("default_value", Text, nullable=False, server_default=text("''")),
+    Column("field_order", Integer, nullable=False, server_default=text("0")),
+    Index("ix_setup_template_fields_template", "template_id"),
+)
+
+
 # Tables protected by row-level security (org_id + policy). Kept here as the
 # authoritative list the migrations enable RLS on and the query layer scopes.
 TENANT_TABLES: tuple[str, ...] = (
@@ -586,6 +631,8 @@ TENANT_TABLES: tuple[str, ...] = (
     "checklists",
     "checklist_items",
     "part_usages",
+    "setup_templates",
+    "setup_template_fields",
 )
 
 

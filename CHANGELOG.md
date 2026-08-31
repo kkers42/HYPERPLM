@@ -432,3 +432,34 @@ follower count. Rebuilt so every figure comes from the database.
   run.
 - Suite: **63 passed.**
 
+### Racing domain (Phase 3, step 13) — testing-notes follow-up
+
+From the first testing pass:
+
+- **Fixed: the "Racing Workspace" and "Fan Zone" sidebar links opened a blank page.**
+  Every `.nav-link` got a click handler that called `preventDefault()`, removed `active`
+  from every panel, then did `getElementById('panel-undefined')` and threw. The two new
+  links had no `data-panel`, so they blanked the page instead of navigating. Real
+  navigations are now left alone, and `navTo` refuses an unknown panel rather than
+  clearing the page first.
+- **Fixed: the PLM app said "HYPERPLM Paddock".** That side is the PLM; it now reads
+  "HYPERPLM PLM", and the two cross-links read as destinations ("Paddock →", "Fan Zone →").
+- Migration `0007_series_and_templates.py`:
+  - `series` reference table (IMSA WeatherTech, IMSA VP Challenge, NTT IndyCar, Indy NXT —
+    real championships). An event can now record which series it belongs to.
+    **Choosing a series narrows the circuit list to the ones that series actually visits**,
+    derived from the `series_tag` already held on each track — IndyCar offers 16 of the 23
+    and does not offer Lime Rock. No calendar has been invented; `series.calendar_source`
+    is reserved to record provenance when a real feed is wired, so an imported round can
+    never be confused with one typed by hand.
+  - `setup_templates` + `setup_template_fields`, per-org and RLS-scoped: a team owns its
+    own field lists, because an IndyCar sheet is not a GT3 sheet. Two **starter field
+    lists** ship as instantiable presets (real engineering fields, not sample data): GT3
+    carries diff preload and bar positions in kg/bar; IndyCar carries weight jacker,
+    stagger and wicker in lb/psi. A team instantiates one and edits it as its own.
+  - `setups.template_id` records which template a sheet came from; applying a template lays
+    its fields onto a sheet ready to fill.
+- Suite: **69 passed**, including that picking IndyCar excludes Lime Rock while IMSA
+  includes it, that the two starter lists genuinely differ, and that templates are private
+  to their org.
+

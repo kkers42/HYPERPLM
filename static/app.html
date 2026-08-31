@@ -12,13 +12,13 @@
 
   <!-- ── TC8-style chrome top bar ─────────────────────────────────── -->
   <div id="tc-chrome">
-    <div id="tc-logo">HYPERPLM <span>Paddock</span></div>
+    <div id="tc-logo">HYPERPLM <span>PLM</span></div>
     <div id="tc-menu-bar">
       <span class="tc-menu-item" onclick="navTo('parts')">Parts</span>
       <span class="tc-menu-item" onclick="navTo('bom')">Structure</span>
       <span class="tc-menu-item" onclick="navTo('documents')">Documents</span>
-      <span class="tc-menu-item" style="color:#ff5e2b;font-weight:700" onclick="location.href='/racing'">🏁 Racing</span>
-      <span class="tc-menu-item" onclick="location.href='/paddock'">Fans</span>
+      <span class="tc-menu-item" style="color:#ff5e2b;font-weight:700" onclick="location.href='/racing'">🏁 Paddock →</span>
+      <span class="tc-menu-item" onclick="location.href='/paddock'">Fan Zone →</span>
       <span class="tc-menu-item" id="tc-admin-link" style="display:none" onclick="navTo('admin')">Admin</span>
     </div>
     <div id="tc-user-area">
@@ -45,10 +45,10 @@
           <span class="nav-icon">📁</span> Documents
         </a></li>
         <li><a href="/racing" class="nav-link" style="color:#ff5e2b;font-weight:700">
-          <span class="nav-icon">🏁</span> Racing Workspace
+          <span class="nav-icon">🏁</span> Paddock — Racing
         </a></li>
         <li><a href="/paddock" class="nav-link">
-          <span class="nav-icon">👥</span> Fan Zone
+          <span class="nav-icon">👥</span> Paddock — Fans
         </a></li>
         <li id="admin-nav-item" style="display:none">
           <a href="#" data-panel="admin" class="nav-link">
@@ -255,12 +255,18 @@
     document.querySelectorAll('.nav-link').forEach(l => {
       l.classList.toggle('active', l.dataset.panel === panel);
     });
+    const target = document.getElementById(`panel-${panel}`);
+    if (!target) return;   // never blank the page over a bad panel name
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    document.getElementById(`panel-${panel}`).classList.add('active');
+    target.classList.add('active');
   }
 
   document.querySelectorAll('.nav-link').forEach(link => {
     link.addEventListener('click', e => {
+      // Links without a data-panel are real navigations (Racing, Fan Zone).
+      // Hijacking them hid every panel and then threw on panel-undefined,
+      // which is why they rendered blank.
+      if (!link.dataset.panel) return;
       e.preventDefault();
       navTo(link.dataset.panel);
     });
