@@ -1,5 +1,9 @@
-<title>Paddock Workspace</title>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paddock Workspace</title>
 <style>
 /* ============ TOKENS ============ */
 :root{
@@ -211,997 +215,912 @@ body.fan .fan-banner{display:flex;align-items:center;gap:12px;background:var(--p
   .setup-grid,.two{grid-template-columns:1fr}
   .ctx-meta,.brand small{display:none}
 }
+</style><style>
+/* additions for the real application: empty states, forms, toasts */
+.empty{padding:28px 18px;text-align:center;color:var(--dim);font-size:13.5px}
+.empty b{display:block;color:var(--text);font-family:var(--f-disp);font-size:15px;margin-bottom:5px}
+.empty .btn{margin-top:12px}
+.skel{color:var(--faint);font-size:12.5px;padding:16px 18px}
+.pk-ov{position:fixed;inset:0;background:rgba(4,8,11,.72);z-index:200;display:grid;place-items:center;padding:20px}
+.pk-md{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);width:min(460px,100%);overflow:hidden}
+.pk-md h3{font-size:15px;padding:15px 18px;border-bottom:1px solid var(--border);margin:0}
+.pk-bd{padding:16px 18px;display:flex;flex-direction:column;gap:11px}
+.pk-bd label{font-family:var(--f-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:5px}
+.pk-bd input,.pk-bd select,.pk-bd textarea{width:100%;font:inherit;font-size:14px;background:var(--surface-2);
+  border:1px solid var(--border);color:var(--text);border-radius:9px;padding:9px 11px}
+.pk-ft{display:flex;gap:9px;justify-content:flex-end;padding:13px 18px;border-top:1px solid var(--border)}
+.pk-err{color:var(--red);font-size:12.5px;min-height:1em}
+.pk-act{font:inherit;font-size:12px;font-weight:650;border:1px solid var(--border-strong);background:var(--surface);
+  color:var(--text);padding:5px 11px;border-radius:8px;cursor:pointer;margin-left:6px}
+.pk-act.go{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.pk-act.pub{background:var(--green-bg);color:var(--green);border-color:transparent}
+.pk-act.prv{background:var(--purple-bg);color:var(--purple);border-color:transparent}
+.pk-sel{font:inherit;font-size:12.5px;background:var(--surface-2);border:1px solid var(--border);
+  color:var(--text);border-radius:8px;padding:5px 8px;margin-left:10px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface);
+  border:1px solid var(--border);border-radius:11px;padding:11px 16px;box-shadow:var(--shadow);z-index:300;font-size:13px}
+.toast.err{border-color:var(--red);color:var(--red)}
+.check{cursor:pointer}
 </style>
-
+</head>
+<body>
 <div class="app">
-  <!-- ================= TOP BAR ================= -->
   <header class="topbar">
-    <div class="brand">
-      <div class="flag"></div>
-      <div>Paddock<small>by HyperPLM</small></div>
-    </div>
-    <div class="ctx">
-      <div class="car-no">74</div>
-      <div class="ctx-meta">
-        <b>Meridian Autosport</b>
-        <span>GTD · Mercedes-AMG GT3</span>
-      </div>
-    </div>
+    <div class="brand"><div class="flag"></div><div>Paddock<small>by HYPERPLM</small></div></div>
+    <div class="ctx" id="ctx"></div>
     <div class="spacer"></div>
-    <div class="evt" title="Active event">
-      <span class="dot"></span>
-      <div style="line-height:1.1"><b>Six Hours of The Glen</b><div style="font-size:10.5px;color:var(--dim)">Watkins Glen · Rd 5</div></div>
-    </div>
-    <div class="viewas" role="group" aria-label="View as">
-      <button id="asTeam" class="on" onclick="setView('team')">● Team</button>
-      <button id="asFan" onclick="setView('fan')">◐ Fan</button>
-    </div>
-    <button class="theme-btn" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
+    <div class="evt" id="evt" style="display:none"></div>
+    <button class="theme-btn" onclick="toggleTheme()" title="Theme" aria-label="Theme">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
     </button>
-    <div class="avatar" title="Dan Reyes — Race Engineer">DR</div>
+    <a class="btn" href="/app" style="padding:6px 12px;font-size:12.5px">PLM</a>
+    <a class="btn" href="/paddock" style="padding:6px 12px;font-size:12.5px">Fan Zone</a>
+    <div class="avatar" id="who">·</div>
   </header>
 
-  <!-- ================= SIDEBAR ================= -->
   <aside class="side">
     <div class="grp">Workspace</div>
-    <div class="nav active" data-nav="overview" onclick="go('overview')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
-      Overview</div>
-    <div class="nav" data-nav="tracks" onclick="go('tracks')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15c0-5 4-9 8-9s6 2 6 5-2 4-4 4-3-1-3-2 1-2 2-2"/><circle cx="4" cy="15" r="2"/></svg>
-      Track Data<span class="cnt">11</span></div>
-    <div class="nav" data-nav="setup" onclick="go('setup')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2" fill="var(--surface)"/><circle cx="15" cy="12" r="2" fill="var(--surface)"/><circle cx="7" cy="18" r="2" fill="var(--surface)"/></svg>
-      Setup Sheets<span class="cnt">48</span></div>
-    <div class="nav" data-nav="times" onclick="go('times')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5m0 14h16M4 19l5-6 4 3 6-8"/></svg>
-      Lap Times</div>
-    <div class="nav" data-nav="checklists" onclick="go('checklists')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>
-      Checklists<span class="cnt">3</span></div>
+    <div class="nav active" data-nav="overview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Overview</div>
+    <div class="nav" data-nav="tracks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15c0-5 4-9 8-9s6 2 6 5-2 4-4 4-3-1-3-2 1-2 2-2"/><circle cx="4" cy="15" r="2"/></svg>Track Data<span class="cnt" id="c-tracks">–</span></div>
+    <div class="nav" data-nav="setups"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Setup Sheets<span class="cnt" id="c-setups">–</span></div>
+    <div class="nav" data-nav="times"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5m0 14h16M4 19l5-6 4 3 6-8"/></svg>Lap Times<span class="cnt" id="c-laps">–</span></div>
+    <div class="nav" data-nav="checklists"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>Checklists<span class="cnt" id="c-checks">–</span></div>
     <div class="grp">Garage</div>
-    <div class="nav" data-nav="parts" onclick="go('parts')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3"/></svg>
-      Parts &amp; CAD<span class="cnt">214</span></div>
-    <div class="nav" data-nav="car" onclick="go('car')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13l2-5a3 3 0 0 1 3-2h8a3 3 0 0 1 3 2l2 5v4H3v-4Z"/><circle cx="7.5" cy="17" r="1.6"/><circle cx="16.5" cy="17" r="1.6"/></svg>
-      Car &amp; Build</div>
-    <div class="lock">
-      <b>🔒 Visibility</b>
-      Data marked <span class="pill team" style="font-size:9px">Team</span> stays inside the garage. <span class="pill pub" style="font-size:9px">Public</span> data feeds fans. Toggle <b style="display:inline">Fan</b> up top to preview.
-    </div>
+    <div class="nav" data-nav="parts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>Parts &amp; CAD<span class="cnt" id="c-parts">–</span></div>
+    <div class="nav" data-nav="car"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13l2-5a3 3 0 0 1 3-2h8a3 3 0 0 1 3 2l2 5v4H3v-4Z"/><circle cx="7.5" cy="17" r="1.6"/><circle cx="16.5" cy="17" r="1.6"/></svg>Car &amp; Build</div>
+    <div class="lock"><b>🔒 Visibility</b>Data marked <span class="pill team" style="font-size:9px">Team</span> stays in the garage. <span class="pill pub" style="font-size:9px">Public</span> feeds the Fan Zone.</div>
   </aside>
 
-  <!-- ================= MAIN ================= -->
   <main class="main">
-    <div class="fan-banner" role="note">
-      <div class="ic">◐</div>
-      <div>You're previewing the <b>public fan view</b>. Proprietary engineering data is hidden — fans see lap times, results, and live session data, not your setups. <a href="#" onclick="go('fanmodel');return false" style="color:var(--purple);font-weight:600">See the fan model →</a></div>
-    </div>
-
-    <!-- ---------- OVERVIEW ---------- -->
-    <section class="view show" id="v-overview">
-      <div class="page-head">
-        <div>
-          <div class="eyebrow">Race Engineering · 2025 IMSA WeatherTech</div>
-          <h1>Team Overview</h1>
-          <p>Everything for the <b>#74</b> in one place — this weekend's book, the season trend, and what's due.</p>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Log session</button>
-          <button class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4m0 0L8 8m4-4 4 4M4 20h16"/></svg>Upload data</button>
-        </div>
-      </div>
-
-      <div class="grid kpis" style="margin-bottom:14px">
-        <div class="card pad kpi"><div class="eyebrow">Best lap · The Glen</div><div class="big fastest">1:41.208</div><div class="sub"><span class="trend up">▲ 0.412</span> vs 2024 pole</div></div>
-        <div class="card pad kpi"><div class="eyebrow">Championship</div><div class="big">P4</div><div class="sub">GTD · 1,204 pts · <span class="trend up">▲2</span></div></div>
-        <div class="card pad kpi"><div class="eyebrow">Setups on file</div><div class="big">48</div><div class="sub">across 11 tracks · 6 baselines</div></div>
-        <div class="card pad kpi"><div class="eyebrow">Parts due service</div><div class="big" style="color:var(--yellow)">3</div><div class="sub"><span class="pill warn">2 soon</span> <span class="pill crit">1 over</span></div></div>
-      </div>
-
-      <div class="grid two">
-        <div class="card">
-          <div class="card-h"><h3>Best-lap trend · 2025 season</h3><span class="pill pub">Public</span></div>
-          <div style="padding:14px 16px 8px" id="seasonChart"></div>
-          <div class="legend" style="padding:0 16px 14px"><span><i style="background:var(--accent)"></i>Best lap (s off track record)</span><span><i style="background:var(--purple)"></i>Session-best / fastest</span></div>
-        </div>
-        <div class="card">
-          <div class="card-h"><h3>This weekend</h3><span class="eyebrow">Watkins Glen · Rd 5</span></div>
-          <div style="padding:6px 16px 12px">
-            <div class="check done"><div class="box">✓</div><div class="txt">FP1 — baseline WG-A · <span class="mono">best 1:42.9</span></div><div class="who">DR</div></div>
-            <div class="check done"><div class="box">✓</div><div class="txt">FP2 — aero sweep + long run</div><div class="who">DR</div></div>
-            <div class="check"><div class="box"></div><div class="txt">Qualifying — <span class="mono">quali map</span>, new set stagger</div><div class="who">—</div></div>
-            <div class="check"><div class="box"></div><div class="txt">Race — 6h stint &amp; fuel plan</div><div class="who">—</div></div>
-            <div class="divider"></div>
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <div class="hint">Crew on the timing stand</div>
-              <div class="avatars"><span class="a">DR</span><span class="a">MK</span><span class="a">TS</span><span class="a" style="background:var(--accent);color:var(--accent-ink)">+5</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="grid two" style="margin-top:14px">
-        <div class="card">
-          <div class="card-h"><h3>Recent uploads</h3><a class="hint" href="#" onclick="go('times');return false" style="color:var(--accent)">View all</a></div>
-          <div class="tablewrap"><table>
-            <thead><tr><th>Session</th><th>Track</th><th>Type</th><th class="num">Best</th><th>Visibility</th></tr></thead>
-            <tbody>
-              <tr><td>FP2 · Sat AM</td><td>Watkins Glen</td><td>Long run</td><td class="num pb">1:42.104</td><td><span class="pill pub">Public</span></td></tr>
-              <tr><td>FP2 · setup Δ</td><td>Watkins Glen</td><td>Setup sheet</td><td class="num">—</td><td><span class="pill team">Team</span></td></tr>
-              <tr><td>FP1 · Fri PM</td><td>Watkins Glen</td><td>Practice</td><td class="num">1:42.918</td><td><span class="pill pub">Public</span></td></tr>
-              <tr><td>Damper file 07</td><td>Watkins Glen</td><td>Telemetry</td><td class="num">—</td><td><span class="pill team">Team</span></td></tr>
-            </tbody>
-          </table></div>
-        </div>
-        <div class="card pad">
-          <div class="eyebrow" style="margin-bottom:8px">Fan reach · public data</div>
-          <h3 style="font-size:15px;margin-bottom:2px">1,847 fans following #74</h3>
-          <p class="hint" style="margin:0 0 12px">They see the public slice below. <a href="#" onclick="go('fanmodel');return false" style="color:var(--purple)">Fan model →</a></p>
-          <div class="spec"><span class="k">Live lap times &amp; sectors</span><span class="v"><span class="pill pub">On</span></span></div>
-          <div class="spec"><span class="k">Results &amp; championship</span><span class="v"><span class="pill pub">On</span></span></div>
-          <div class="spec"><span class="k">Tire compound &amp; stint log</span><span class="v"><span class="pill pub">On</span></span></div>
-          <div class="spec"><span class="k">Setup sheets &amp; telemetry</span><span class="v"><span class="pill team">Team</span></span></div>
-          <div class="spec"><span class="k">CAD parts &amp; specs</span><span class="v"><span class="pill team">Team</span></span></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ---------- TRACK DATA ---------- -->
-    <section class="view" id="v-tracks">
-      <div class="page-head">
-        <div><div class="eyebrow">11 circuits · 2025 calendar</div><h1>Track Data</h1><p>Every circuit the #74 runs, with its book of setups, session history and records. Open one to drill into dates.</p></div>
-        <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Add circuit</button>
-      </div>
-      <div class="grid tracks" id="trackGrid"></div>
-    </section>
-
-    <!-- ---------- SETUP SHEET ---------- -->
-    <section class="view" id="v-setup">
-      <div class="page-head">
-        <div>
-          <div class="eyebrow">Setup Sheet · <span class="mono">WG-2025-Q</span></div>
-          <h1>Watkins Glen — Qualifying</h1>
-          <p>#74 Mercedes-AMG GT3 · baseline <b>WG-A</b> +3 · engineer Dan Reyes · <span class="mono">Sat 14:05</span></p>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <span class="pill team">Team only</span>
-          <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m0 8v3a2 2 0 0 0 2 2h3m8 0h3a2 2 0 0 0 2-2v-3m0-8V5a2 2 0 0 0-2-2h-3"/></svg>Compare</button>
-          <button class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5v14"/></svg>New revision</button>
-        </div>
-      </div>
-
-      <div class="guard" data-guard>
-        <div class="guard__lock"><div class="ic">🔒</div><b>Setup sheets are team-only</b><span>Fans never see corner weights, dampers or aero. This is your IP — it stays in the garage unless you publish it.</span></div>
-        <div class="guard__body grid" style="grid-template-columns:1fr 1fr 1fr;gap:14px">
-
-          <div class="card">
-            <div class="card-h"><h3>Corner weights</h3><span class="eyebrow">kg · cross 50.4%</span></div>
-            <div style="padding:14px 16px">
-              <div class="corner">
-                <div class="cbox"><div class="lbl">LF</div><div class="val">312<small>kg</small></div></div>
-                <div class="cbox"><div class="lbl">RF</div><div class="val">318<small>kg</small></div></div>
-                <div class="cbox"><div class="lbl">LR</div><div class="val">356<small>kg</small></div></div>
-                <div class="cbox"><div class="lbl">RR</div><div class="val">349<small>kg</small></div></div>
-              </div>
-              <div class="spec" style="margin-top:12px"><span class="k">Total w/ driver</span><span class="v">1335<span class="u">kg</span></span></div>
-              <div class="spec"><span class="k">Cross weight</span><span class="v">50.4<span class="u">%</span></span></div>
-              <div class="spec"><span class="k">Front / rear</span><span class="v">47.2 / 52.8<span class="u">%</span></span></div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-h"><h3>Springs &amp; dampers</h3></div>
-            <div style="padding:12px 16px">
-              <div class="spec"><span class="k">Spring — front</span><span class="v">140<span class="u">N/mm</span></span></div>
-              <div class="spec"><span class="k">Spring — rear</span><span class="v">160<span class="u">N/mm</span></span></div>
-              <div class="spec"><span class="k">Bump LS F/R</span><span class="v">8 / 10<span class="u">clk</span></span></div>
-              <div class="spec"><span class="k">Bump HS F/R</span><span class="v">4 / 5<span class="u">clk</span></span></div>
-              <div class="spec"><span class="k">Reb. LS F/R</span><span class="v">12 / 11<span class="u">clk</span></span></div>
-              <div class="spec"><span class="k">Reb. HS F/R</span><span class="v">6 / 6<span class="u">clk</span></span></div>
-              <div class="spec"><span class="k">ARB front</span><span class="v">P3</span></div>
-              <div class="spec"><span class="k">ARB rear</span><span class="v">P2</span></div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-h"><h3>Alignment</h3></div>
-            <div style="padding:12px 16px">
-              <div class="spec"><span class="k">Camber LF/RF</span><span class="v">-3.8 / -3.7<span class="u">°</span></span></div>
-              <div class="spec"><span class="k">Camber LR/RR</span><span class="v">-3.2 / -3.1<span class="u">°</span></span></div>
-              <div class="spec"><span class="k">Toe front</span><span class="v">-0.4<span class="u">mm</span></span></div>
-              <div class="spec"><span class="k">Toe rear</span><span class="v">+1.6<span class="u">mm</span></span></div>
-              <div class="spec"><span class="k">Caster</span><span class="v">7.2<span class="u">°</span></span></div>
-              <div class="spec"><span class="k">Ride F/R</span><span class="v">52 / 68<span class="u">mm</span></span></div>
-              <div class="spec"><span class="k">Rake</span><span class="v">16<span class="u">mm</span></span></div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-h"><h3>Aero &amp; brakes</h3></div>
-            <div style="padding:12px 16px">
-              <div class="spec"><span class="k">Rear wing</span><span class="v">P6<span class="u">of 12</span></span></div>
-              <div class="spec"><span class="k">Front splitter</span><span class="v">S2</span></div>
-              <div class="spec"><span class="k">Brake bias</span><span class="v">56.5<span class="u">%F</span></span></div>
-              <div class="spec"><span class="k">Brake ducts</span><span class="v">40<span class="u">% open</span></span></div>
-              <div class="spec"><span class="k">Diff preload</span><span class="v">80<span class="u">Nm</span></span></div>
-              <div class="spec"><span class="k">Ramps drive/coast</span><span class="v">45 / 60<span class="u">°</span></span></div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-h"><h3>Tires</h3><span class="eyebrow">Michelin · slick</span></div>
-            <div style="padding:12px 16px">
-              <div class="spec"><span class="k">Compound</span><span class="v">Medium</span></div>
-              <div class="spec"><span class="k">Cold set F</span><span class="v">1.55 / 1.55<span class="u">bar</span></span></div>
-              <div class="spec"><span class="k">Cold set R</span><span class="v">1.50 / 1.50<span class="u">bar</span></span></div>
-              <div class="spec"><span class="k">Target hot</span><span class="v">1.85<span class="u">bar</span></span></div>
-              <div class="spec"><span class="k">Set ID</span><span class="v">#7 (Q)</span></div>
-              <div class="spec"><span class="k">Stagger</span><span class="v">new / new</span></div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-h"><h3>Conditions &amp; notes</h3></div>
-            <div style="padding:12px 16px">
-              <div class="spec"><span class="k">Air / track</span><span class="v">24 / 38<span class="u">°C</span></span></div>
-              <div class="spec"><span class="k">Wind</span><span class="v">12<span class="u">kph SW</span></span></div>
-              <div class="spec"><span class="k">Fuel load</span><span class="v">28<span class="u">L</span></span></div>
-              <p class="hint" style="margin:12px 0 0;line-height:1.5">Car rotates well mid-corner into T5. Slight entry push at the Bus Stop — try +1 clk front reb. and P4 ARB if quali traffic allows. Kerb strike on inner T1 logged.</p>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </section>
-
-    <!-- ---------- LAP TIMES ---------- -->
-    <section class="view" id="v-times">
-      <div class="page-head">
-        <div><div class="eyebrow">Watkins Glen · all sessions</div><h1>Lap Times</h1><p>Times v. date across practice, qualifying and race — the public trend fans love, and the private detail engineers need.</p></div>
-        <div style="display:flex;gap:8px">
-          <button class="btn">Export CSV</button>
-          <button class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4m0 0L8 8m4-4 4 4M4 20h16"/></svg>Upload times</button>
-        </div>
-      </div>
-
-      <div class="card" style="margin-bottom:14px">
-        <div class="card-h"><h3>Session progression · The Glen weekend</h3><span class="pill pub">Public</span></div>
-        <div style="padding:16px" id="weekendChart"></div>
-        <div class="legend" style="padding:0 16px 16px">
-          <span><i style="background:var(--dim)"></i>Lap</span>
-          <span><i style="background:var(--green)"></i>Personal best</span>
-          <span><i style="background:var(--purple)"></i>Session fastest</span>
-          <span><i style="background:var(--accent)"></i>#74 best line</span>
-        </div>
-      </div>
-
-      <div class="grid two">
-        <div class="card">
-          <div class="card-h"><h3>Session log</h3><span class="eyebrow">public feed</span></div>
-          <div class="tablewrap"><table>
-            <thead><tr><th>Session</th><th>Date</th><th class="num">Laps</th><th class="num">Best</th><th class="num">Δ record</th></tr></thead>
-            <tbody>
-              <tr><td>FP1</td><td class="num">Fri 08/22</td><td class="num">31</td><td class="num">1:42.918</td><td class="num" style="color:var(--yellow)">+1.71</td></tr>
-              <tr><td>FP2</td><td class="num">Sat 08/23</td><td class="num">28</td><td class="num pb">1:42.104</td><td class="num" style="color:var(--yellow)">+0.90</td></tr>
-              <tr><td>Qualifying</td><td class="num">Sat 08/23</td><td class="num">6</td><td class="num fastest">1:41.208</td><td class="num" style="color:var(--green)">+0.00</td></tr>
-              <tr><td>Warmup</td><td class="num">Sun 08/24</td><td class="num">9</td><td class="num">1:42.550</td><td class="num" style="color:var(--yellow)">+1.34</td></tr>
-              <tr><td>Race — best</td><td class="num">Sun 08/24</td><td class="num">184</td><td class="num pb">1:41.902</td><td class="num" style="color:var(--yellow)">+0.69</td></tr>
-            </tbody>
-          </table></div>
-        </div>
-        <div class="card">
-          <div class="card-h"><h3>Stint &amp; tire log</h3><span class="pill pub">Public</span></div>
-          <div class="tablewrap"><table>
-            <thead><tr><th>Stint</th><th>Driver</th><th>Tire</th><th class="num">Laps</th><th class="num">Avg</th></tr></thead>
-            <tbody>
-              <tr><td>1</td><td>Reyes</td><td><span class="pill neutral">Med</span></td><td class="num">42</td><td class="num">1:43.10</td></tr>
-              <tr><td>2</td><td>Novak</td><td><span class="pill neutral">Med</span></td><td class="num">45</td><td class="num">1:43.44</td></tr>
-              <tr><td>3</td><td>Novak</td><td><span class="pill warn">Hard</span></td><td class="num">40</td><td class="num">1:43.90</td></tr>
-              <tr><td>4</td><td>Reyes</td><td><span class="pill neutral">Med</span></td><td class="num">57</td><td class="num">1:42.88</td></tr>
-            </tbody>
-          </table></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ---------- CHECKLISTS ---------- -->
-    <section class="view" id="v-checklists">
-      <div class="page-head">
-        <div><div class="eyebrow">3 active · Watkins Glen</div><h1>Checklists</h1><p>Reusable garage &amp; pit procedures. Templates carry across events; sign-offs are logged with a name and time.</p></div>
-        <button class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>New checklist</button>
-      </div>
-      <div class="grid two">
-        <div class="card">
-          <div class="card-h"><h3>Pre-qualifying · #74</h3><span class="pill warn">6 / 9</span></div>
-          <div style="padding:8px 16px 14px">
-            <div class="check done"><div class="box">✓</div><div class="txt">Corner weights verified to sheet WG-Q</div><div class="who">TS 13:20</div></div>
-            <div class="check done"><div class="box">✓</div><div class="txt">Tire set #7 scanned &amp; blanketed</div><div class="who">MK 13:35</div></div>
-            <div class="check done"><div class="box">✓</div><div class="txt">Brake bias to 56.5% confirmed on dash</div><div class="who">DR 13:41</div></div>
-            <div class="check done"><div class="box">✓</div><div class="txt">Fuel to 28 L, breather clear</div><div class="who">JP 13:50</div></div>
-            <div class="check done"><div class="box">✓</div><div class="txt">Quali engine map loaded (Map 4)</div><div class="who">DR 13:52</div></div>
-            <div class="check done"><div class="box">✓</div><div class="txt">Radio &amp; marshalling channel check</div><div class="who">TS 13:58</div></div>
-            <div class="check"><div class="box"></div><div class="txt">Splitter &amp; wing torque-checked</div><div class="who">—</div></div>
-            <div class="check"><div class="box"></div><div class="txt">Driver seat belts &amp; drink confirmed</div><div class="who">—</div></div>
-            <div class="check"><div class="box"></div><div class="txt">Final tire pressures set cold</div><div class="who">—</div></div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-h"><h3>Pit stop — driver change</h3><span class="pill ok">Template</span></div>
-          <div style="padding:8px 16px 14px">
-            <div class="check"><div class="box"></div><div class="txt">Fuel coupling seated, dead-man ready</div><div class="who">Fueler</div></div>
-            <div class="check"><div class="box"></div><div class="txt">4× wheel guns charged, sockets on</div><div class="who">Tire crew</div></div>
-            <div class="check"><div class="box"></div><div class="txt">Air jack line pressurised</div><div class="who">Jack</div></div>
-            <div class="check"><div class="box"></div><div class="txt">Belts staged for in-car driver</div><div class="who">Belts</div></div>
-            <div class="check"><div class="box"></div><div class="txt">Windscreen tear-off + cool suit</div><div class="who">R side</div></div>
-            <div class="check"><div class="box"></div><div class="txt">Min-time board / lollipop ready</div><div class="who">Controller</div></div>
-            <div class="divider"></div>
-            <p class="hint" style="margin:0">Best practice stop this weekend: <b class="mono" style="color:var(--green)">28.4s</b> · target <b class="mono">&lt; 30s</b></p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ---------- PARTS & CAD ---------- -->
-    <section class="view" id="v-parts">
-      <div class="page-head">
-        <div><div class="eyebrow">214 parts · linked to HyperPLM vault</div><h1>Parts &amp; CAD</h1><p>Every part number ties to its NX model and revision in the vault. Life-limited components track hours &amp; cycles against their limit.</p></div>
-        <div style="display:flex;gap:8px">
-          <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 21l-4.3-4.3M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16Z"/></svg>Search vault</button>
-          <button class="btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4m0 0L8 8m4-4 4 4M4 20h16"/></svg>Check in part</button>
-        </div>
-      </div>
-
-      <div class="grid kpis" style="margin-bottom:14px">
-        <div class="card pad kpi"><div class="eyebrow">Tracked parts</div><div class="big">214</div><div class="sub">198 in vault · 16 COTS</div></div>
-        <div class="card pad kpi"><div class="eyebrow">Life-limited</div><div class="big">37</div><div class="sub">hours &amp; cycles monitored</div></div>
-        <div class="card pad kpi"><div class="eyebrow">Due service</div><div class="big" style="color:var(--yellow)">3</div><div class="sub"><span class="pill warn">2 soon</span><span class="pill crit">1 over</span></div></div>
-        <div class="card pad kpi"><div class="eyebrow">Open CAD revs</div><div class="big">5</div><div class="sub">2 pending release</div></div>
-      </div>
-
-      <div class="card">
-        <div class="card-h"><h3>Life-limited components</h3><span class="pill team">Team</span></div>
-        <div class="tablewrap"><table>
-          <thead><tr><th>Part No.</th><th>Description</th><th>CAD / Rev</th><th class="num">Used</th><th class="num">Limit</th><th>Life</th><th>Status</th></tr></thead>
-          <tbody>
-            <tr><td class="mono">74-DRV-0021</td><td>Right driveshaft assy</td><td class="mono">DRV0021.prt · C</td><td class="num">38.0 h</td><td class="num">40 h</td><td><span class="lifebar"><i style="width:95%;background:var(--red)"></i></span></td><td><span class="pill crit">Replace</span></td></tr>
-            <tr><td class="mono">74-SUS-0114</td><td>LF upright bearing</td><td class="mono">SUS0114.prt · F</td><td class="num">29.5 h</td><td class="num">35 h</td><td><span class="lifebar"><i style="width:84%;background:var(--yellow)"></i></span></td><td><span class="pill warn">Soon</span></td></tr>
-            <tr><td class="mono">74-ENG-0002</td><td>Engine — sealed unit</td><td class="mono">— sealed</td><td class="num">41.2 h</td><td class="num">50 h</td><td><span class="lifebar"><i style="width:82%;background:var(--yellow)"></i></span></td><td><span class="pill warn">Soon</span></td></tr>
-            <tr><td class="mono">74-BRK-0308</td><td>Front rotor set (4)</td><td class="mono">BRK0308.prt · B</td><td class="num">12.0 h</td><td class="num">20 h</td><td><span class="lifebar"><i style="width:60%;background:var(--green)"></i></span></td><td><span class="pill ok">OK</span></td></tr>
-            <tr><td class="mono">74-GBX-0041</td><td>Gearbox internals kit</td><td class="mono">GBX0041.prt · A</td><td class="num">22.4 h</td><td class="num">45 h</td><td><span class="lifebar"><i style="width:50%;background:var(--green)"></i></span></td><td><span class="pill ok">OK</span></td></tr>
-            <tr><td class="mono">74-AER-0077</td><td>Rear wing mainplane</td><td class="mono">AER0077.prt · D</td><td class="num">8.0 h</td><td class="num">—</td><td><span class="lifebar"><i style="width:20%;background:var(--green)"></i></span></td><td><span class="pill ok">OK</span></td></tr>
-          </tbody>
-        </table></div>
-      </div>
-
-      <div class="grid two" style="margin-top:14px">
-        <div class="card">
-          <div class="card-h"><h3>CAD revisions · pending</h3><a class="hint" href="#" style="color:var(--accent)">Open in NX</a></div>
-          <div class="tablewrap"><table>
-            <thead><tr><th>Model</th><th>Rev</th><th>Change</th><th>Status</th></tr></thead>
-            <tbody>
-              <tr><td class="mono">SPL0129.prt</td><td class="mono">→ E</td><td>Splitter endplate stiffener</td><td><span class="pill warn">Review</span></td></tr>
-              <tr><td class="mono">DUC0044.prt</td><td class="mono">→ C</td><td>Brake duct +5% inlet</td><td><span class="pill warn">Review</span></td></tr>
-              <tr><td class="mono">MNT0210.prt</td><td class="mono">→ B</td><td>Camera mount relocation</td><td><span class="pill ok">Released</span></td></tr>
-            </tbody>
-          </table></div>
-        </div>
-        <div class="card pad">
-          <div class="eyebrow" style="margin-bottom:10px">Why this lives with the setups</div>
-          <h3 style="font-size:15px;margin-bottom:8px">One thread from CAD → car → lap time</h3>
-          <p class="hint" style="line-height:1.6;margin:0 0 12px">A rev on <span class="mono">SPL0129.prt</span> in the vault becomes a part on the car, referenced by the aero line on a setup sheet, and shows up as a delta in the lap-time trend. Paddock keeps that chain intact so you can answer <i>“what changed, and did it work?”</i> in one place.</p>
-          <div class="spec"><span class="k">CAD source</span><span class="v mono">K:\NXFiles</span></div>
-          <div class="spec"><span class="k">Vault items</span><span class="v">198</span></div>
-          <div class="spec"><span class="k">Linked to setups</span><span class="v">64</span></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ---------- CAR ---------- -->
-    <section class="view" id="v-car">
-      <div class="page-head">
-        <div><div class="eyebrow">Chassis 74 · GT3</div><h1>Car &amp; Build</h1><p>The living spec of the #74 — homologation, build state and the baselines it runs from.</p></div>
-        <span class="pill team">Team</span>
-      </div>
-      <div class="grid two">
-        <div class="card pad">
-          <h3 style="font-size:15px;margin-bottom:10px">Identity &amp; homologation</h3>
-          <div class="spec"><span class="k">Chassis</span><span class="v mono">MB-GT3-2024-074</span></div>
-          <div class="spec"><span class="k">Model</span><span class="v">Mercedes-AMG GT3 (2024 Evo)</span></div>
-          <div class="spec"><span class="k">Class</span><span class="v">IMSA GTD</span></div>
-          <div class="spec"><span class="k">Homologation</span><span class="v mono">FIA GT3-2024-14</span></div>
-          <div class="spec"><span class="k">BoP ballast</span><span class="v">+15 kg · air restr. 2×36mm</span></div>
-          <div class="spec"><span class="k">Engine hours</span><span class="v">41.2 / 50 h</span></div>
-          <div class="spec"><span class="k">Total run time</span><span class="v">2,140 km season</span></div>
-        </div>
-        <div class="card pad">
-          <h3 style="font-size:15px;margin-bottom:10px">Baselines on file</h3>
-          <div class="spec"><span class="k mono">WG-A</span><span class="v" style="font-weight:400">High-speed flow · Watkins Glen</span></div>
-          <div class="spec"><span class="k mono">SEB-A</span><span class="v" style="font-weight:400">Bumpy / low grip · Sebring</span></div>
-          <div class="spec"><span class="k mono">DAY-A</span><span class="v" style="font-weight:400">Banking + infield · Daytona</span></div>
-          <div class="spec"><span class="k mono">STREET-A</span><span class="v" style="font-weight:400">Long Beach / Detroit</span></div>
-          <div class="spec"><span class="k mono">WET-1</span><span class="v" style="font-weight:400">Full-wet crossover</span></div>
-          <div class="divider"></div>
-          <div class="progress"><i style="width:82%"></i></div>
-          <p class="hint" style="margin:8px 0 0">Build state: <b>race-ready</b> · 82% of pre-event checklist signed off</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- ---------- FAN MODEL ---------- -->
-    <section class="view" id="v-fanmodel">
-      <div class="page-head">
-        <div><div class="eyebrow">Public layer · the incentive engine</div><h1>The Fan Model</h1><p>What the public gets, why they stay, and how it feeds the team — without ever exposing your IP.</p></div>
-      </div>
-
-      <div class="grid" style="grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
-        <div class="card pad">
-          <span class="pill pub" style="margin-bottom:10px">Fans always see</span>
-          <div class="spec"><span class="k">Live lap times, sectors &amp; gaps</span><span class="v">✓</span></div>
-          <div class="spec"><span class="k">Results, grid &amp; championship</span><span class="v">✓</span></div>
-          <div class="spec"><span class="k">Tire compound &amp; stint strategy log</span><span class="v">✓</span></div>
-          <div class="spec"><span class="k">Driver &amp; crew profiles</span><span class="v">✓</span></div>
-          <div class="spec"><span class="k">Track record chase &amp; best-lap trend</span><span class="v">✓</span></div>
-          <div class="spec"><span class="k">Team-published photos &amp; radio clips</span><span class="v">✓</span></div>
-        </div>
-        <div class="card pad">
-          <span class="pill team" style="margin-bottom:10px">Never leaves the garage</span>
-          <div class="spec"><span class="k">Setup sheets &amp; corner weights</span><span class="v">🔒</span></div>
-          <div class="spec"><span class="k">Damper / telemetry files</span><span class="v">🔒</span></div>
-          <div class="spec"><span class="k">CAD parts, revisions &amp; specs</span><span class="v">🔒</span></div>
-          <div class="spec"><span class="k">Fuel &amp; strategy calls (live)</span><span class="v">🔒</span></div>
-          <div class="spec"><span class="k">Engineer notes &amp; debriefs</span><span class="v">🔒</span></div>
-          <p class="hint" style="margin:12px 0 0">Teams choose to publish any item — the default is private. One switch per data type.</p>
-        </div>
-      </div>
-
-      <div class="card pad" style="margin-bottom:14px">
-        <div class="eyebrow" style="margin-bottom:12px">The incentive — why a fan comes back every session</div>
-        <div class="grid" style="grid-template-columns:repeat(3,1fr);gap:14px">
-          <div>
-            <h3 style="font-size:14px;color:var(--purple)">🏁 Garage Pass tiers</h3>
-            <p class="hint" style="line-height:1.55">Free fans follow &amp; get live timing. <b>Garage Pass</b> (paid / team-comped) unlocks stint predictions, historical trends, and a shout-out wall. Revenue the team shares in.</p>
-          </div>
-          <div>
-            <h3 style="font-size:14px;color:var(--purple)">🎯 Predict &amp; Points</h3>
-            <p class="hint" style="line-height:1.55">Call quali position, pit windows, or the fastest sector. Correct calls earn <b>Paddock Points</b> and climb a per-team leaderboard through the season.</p>
-          </div>
-          <div>
-            <h3 style="font-size:14px;color:var(--purple)">🔥 Streaks &amp; badges</h3>
-            <p class="hint" style="line-height:1.55">Show up for every session, follow through a full endurance race, or spot a new track record — earn badges that make fans feel like part of the crew.</p>
-          </div>
-          <div>
-            <h3 style="font-size:14px;color:var(--purple)">💬 Crew Radio moments</h3>
-            <p class="hint" style="line-height:1.55">Teams push a cleared radio clip or "why we pitted" note. Fans get the <i>insider feel</i> — the team controls exactly what's shared.</p>
-          </div>
-          <div>
-            <h3 style="font-size:14px;color:var(--purple)">🏆 Fan of the Race</h3>
-            <p class="hint" style="line-height:1.55">Top predictors &amp; most-active fans get surfaced to the team — grid walks, meet-and-greets, signed gear. Cheap for the team, huge for the fan.</p>
-          </div>
-          <div>
-            <h3 style="font-size:14px;color:var(--purple)">📈 Value back to the team</h3>
-            <p class="hint" style="line-height:1.55">Every follow, prediction and Garage Pass is <b>audience data &amp; sponsor value</b> the team owns — a measurable fanbase to take to partners.</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="card pad" style="text-align:center">
-        <p class="hint" style="margin:0">Fans must be <b>associated</b> — to a team they follow, or as an unaffiliated spectator. Either way they have a home in Paddock, and the team gets a growing, measurable following.</p>
-      </div>
-    </section>
-
+    <section class="view show" id="v-overview"></section>
+    <section class="view" id="v-tracks"></section>
+    <section class="view" id="v-setups"></section>
+    <section class="view" id="v-times"></section>
+    <section class="view" id="v-checklists"></section>
+    <section class="view" id="v-parts"></section>
+    <section class="view" id="v-car"></section>
   </main>
 </div>
-
 <script>
-/* ---------- navigation ---------- */
-function go(view){
-  document.querySelectorAll('.view').forEach(v=>v.classList.remove('show'));
-  var el=document.getElementById('v-'+view); if(el)el.classList.add('show');
-  document.querySelectorAll('.nav').forEach(n=>n.classList.toggle('active', n.dataset.nav===view));
-  document.querySelector('.main').scrollTo?.(0,0);
-  window.scrollTo({top:0,behavior:'instant'in window?'instant':'auto'});
-}
-/* ---------- team / fan view ---------- */
-function setView(mode){
-  document.body.classList.toggle('fan', mode==='fan');
-  document.getElementById('asTeam').classList.toggle('on', mode==='team');
-  document.getElementById('asFan').classList.toggle('on', mode==='fan');
-  document.getElementById('asFan').classList.toggle('fan', mode==='fan');
-}
-/* ---------- theme ---------- */
-function toggleTheme(){
-  var r=document.documentElement;
-  var cur=r.getAttribute('data-theme');
-  if(!cur){ cur = matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'; }
-  r.setAttribute('data-theme', cur==='dark'?'light':'dark');
-}
-/* ---------- track cards (uses your 23-folder track list) ---------- */
-var TRACKS=[
-  {n:"Daytona Int'l Speedway",l:"Daytona Beach, FL",s:12,best:"1:44.9",rec:"road",path:"M10,45 C10,20 40,10 90,12 C150,14 175,25 195,25 C205,25 205,40 190,42 C120,45 90,40 60,48 C30,55 10,58 10,45Z"},
-  {n:"Sebring Int'l Raceway",l:"Sebring, FL",s:17,best:"1:57.0",rec:"road",path:"M12,30 C40,18 70,20 100,22 C140,25 180,15 195,28 C205,38 180,45 150,44 C110,42 80,52 50,50 C20,48 8,40 12,30Z"},
-  {n:"Watkins Glen Int'l",l:"Watkins Glen, NY",s:11,best:"1:41.2",rec:"road",path:"M14,40 C14,22 46,16 74,22 C96,27 104,14 128,16 C168,19 200,22 196,36 C192,48 150,44 120,46 C80,49 40,54 22,50 C12,47 14,44 14,40Z"},
-  {n:"Sebring · Sunset Bend",l:"Sebring, FL",s:17,best:"1:57.4",rec:"road",path:"M16,34 C40,20 90,24 130,22 C170,20 196,30 190,40 C182,48 140,44 100,46 C60,48 20,48 16,34Z"},
-  {n:"Road America",l:"Elkhart Lake, WI",s:14,best:"2:05.6",rec:"road",path:"M12,50 C10,25 30,14 55,20 C75,25 78,40 100,38 C130,35 150,12 180,18 C205,23 200,42 170,44 C120,47 60,60 20,56 C13,55 12,52 12,50Z"},
-  {n:"Michelin Raceway Road Atlanta",l:"Braselton, GA",s:12,best:"1:16.9",rec:"road",path:"M14,42 C14,24 44,18 80,22 C120,27 160,18 192,28 C204,32 196,44 168,44 C120,44 70,52 34,50 C18,49 14,46 14,42Z"},
-  {n:"VIR — Full Course",l:"Alton, VA",s:17,best:"1:44.4",rec:"road",path:"M12,36 C36,20 78,26 116,24 C156,22 194,20 194,34 C194,46 150,44 112,46 C72,48 30,52 12,42 Z"},
-  {n:"Long Beach Street Circuit",l:"Long Beach, CA",s:11,best:"1:12.9",rec:"street",path:"M18,22 L182,22 L182,34 L60,34 L60,52 L44,52 L44,34 L18,34 Z"},
-  {n:"Laguna Seca",l:"Monterey, CA",s:11,best:"1:22.0",rec:"road",path:"M14,44 C14,26 40,20 60,26 C74,30 74,42 92,40 C118,37 120,16 150,18 C186,20 200,30 188,40 C170,46 120,44 90,48 C50,53 20,54 14,44Z"},
-  {n:"Mid-Ohio Sports Car Course",l:"Lexington, OH",s:13,best:"1:22.7",rec:"road",path:"M16,40 C16,24 44,20 72,24 C104,29 116,14 146,18 C182,22 198,32 184,42 C160,48 120,44 92,46 C56,49 20,50 16,40Z"},
-  {n:"Detroit Street Circuit",l:"Detroit, MI",s:10,best:"1:01.7",rec:"street",path:"M20,26 L180,26 L180,30 L120,30 L120,48 L108,48 L108,30 L48,30 L48,44 L36,44 L36,30 L20,30 Z"}
-];
-(function(){
-  var g=document.getElementById('trackGrid'); if(!g)return;
-  g.innerHTML=TRACKS.map(function(t){
-    var pill = t.rec==='street' ? '<span class="pill neutral">Street</span>' : '<span class="pill neutral">Road</span>';
-    return '<div class="card trackcard" onclick="go(\'setup\')">'
-      +'<div class="top"><div><h4>'+t.n+'</h4><div class="loc">'+t.l+'</div></div>'+pill+'</div>'
-      +'<div class="layout"><svg viewBox="0 0 210 70" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"><path d="'+t.path+'"/></svg></div>'
-      +'<div class="foot"><span>'+t.s+' turns · best <b class="mono">'+t.best+'</b></span><span class="mono" style="color:var(--accent)">Open →</span></div>'
-      +'</div>';
-  }).join('');
-})();
-/* ---------- charts (hand-built SVG) ---------- */
-function lineChart(el,pts,opt){
-  opt=opt||{}; var W=640,H=200,pl=44,pr=14,pt=14,pb=28;
-  var xs=pts.map(function(p){return p.x}), ys=pts.map(function(p){return p.y});
-  var ymin=opt.ymin!=null?opt.ymin:Math.min.apply(0,ys)-.2, ymax=opt.ymax!=null?opt.ymax:Math.max.apply(0,ys)+.2;
-  var X=function(i){return pl+(W-pl-pr)*(i/(pts.length-1));};
-  var Y=function(v){return pt+(H-pt-pb)*(1-(v-ymin)/(ymax-ymin));};
-  var grid=''; var rows=4;
-  for(var r=0;r<=rows;r++){var yy=pt+(H-pt-pb)*r/rows; var val=(ymax-(ymax-ymin)*r/rows);
-    grid+='<line x1="'+pl+'" y1="'+yy+'" x2="'+(W-pr)+'" y2="'+yy+'" stroke="var(--border)" stroke-width="1"/>';
-    grid+='<text x="'+(pl-8)+'" y="'+(yy+3)+'" text-anchor="end" font-size="9" fill="var(--faint)" font-family="var(--f-mono)">'+val.toFixed(1)+'</text>';
-  }
-  var line='',area=''; pts.forEach(function(p,i){var x=X(i),y=Y(p.y); line+=(i?'L':'M')+x+','+y+' '; area+=(i?'L':'M')+x+','+y+' ';});
-  area+='L'+X(pts.length-1)+','+(H-pb)+' L'+X(0)+','+(H-pb)+' Z';
-  var dots=pts.map(function(p,i){var x=X(i),y=Y(p.y); var c=p.c||opt.color||'var(--accent)';
-    var big=(i===pts.length-1)||p.big;
-    return '<circle cx="'+x+'" cy="'+y+'" r="'+(big?4.5:3)+'" fill="'+c+'" stroke="var(--surface)" stroke-width="2"/>'
-      +(p.lab?'<text x="'+x+'" y="'+(y-9)+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="'+c+'" font-family="var(--f-mono)">'+p.lab+'</text>':'');
-  }).join('');
-  var xlab=pts.map(function(p,i){return p.t?'<text x="'+X(i)+'" y="'+(H-8)+'" text-anchor="middle" font-size="9" fill="var(--faint)" font-family="var(--f-mono)">'+p.t+'</text>':'';}).join('');
-  el.innerHTML='<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img">'
-    +'<defs><linearGradient id="ag'+el.id+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+(opt.color||'var(--accent)')+'" stop-opacity=".22"/><stop offset="1" stop-color="'+(opt.color||'var(--accent)')+'" stop-opacity="0"/></linearGradient></defs>'
-    +grid+'<path d="'+area+'" fill="url(#ag'+el.id+')"/>'
-    +'<path d="'+line+'" fill="none" stroke="'+(opt.color||'var(--accent)')+'" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>'
-    +dots+xlab+'</svg>';
-}
-/* season: seconds off track record, lower=better */
-lineChart(document.getElementById('seasonChart'),[
-  {y:2.1,t:"Day"},{y:1.7,t:"Seb"},{y:1.9,t:"LB"},{y:1.4,t:"Lag",c:"var(--purple)"},{y:1.2,t:"Mid"},{y:0.9,t:"Glen",big:true,lab:"+0.90"}
-],{color:'var(--accent)',ymin:0.5,ymax:2.4});
-/* weekend: lap time seconds relative 101 base -> show 1:4x.x */
-lineChart(document.getElementById('weekendChart'),[
-  {y:42.9,t:"FP1"},{y:42.6},{y:42.3},{y:42.1,t:"FP2",c:"var(--green)"},{y:41.9},{y:41.208,t:"Q",c:"var(--purple)",big:true,lab:"1:41.2"},{y:42.5,t:"WU"},{y:41.9,t:"Race",c:"var(--green)"}
-],{color:'var(--accent)',ymin:40.8,ymax:43.2});
-</script>
-<script>
-/* ── LIVE DATA HYDRATION ────────────────────────────────────────────────────
-   Keeps the prototype's design exactly as-is and swaps the mock content for
-   real rows from /api/racing/*. Runs after the design's own script. */
-(function(){
-  const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
-  const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-  const fmt=ms=>ms==null?"—":`${Math.floor(ms/60000)}:${((ms%60000)/1000).toFixed(3).padStart(6,"0")}`;
-  async function api(p){const r=await fetch(p,{credentials:"same-origin"});
-    if(r.status===401){location.href="/login";throw new Error("auth");}
-    if(!r.ok)throw new Error(p+" → "+r.status);return r.json();}
+/* ══ Paddock workspace — a real application ═════════════════════════════════
+   Every number, row and chart on this page is rendered from the API. There is
+   no placeholder content: if a panel is empty it says so and offers the action
+   that fills it. State lives in ST; render() redraws the active view. */
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt=ms=>ms==null?"—":`${Math.floor(ms/60000)}:${((ms%60000)/1000).toFixed(3).padStart(6,"0")}`;
+const toMs=s=>{const m=String(s).trim().match(/^(?:(\d+):)?(\d+(?:\.\d+)?)$/);
+  return m?Math.round((+(m[1]||0))*60000+parseFloat(m[2])*1000):null;};
+const dt=s=>s?new Date(s).toLocaleDateString(undefined,{month:"short",day:"numeric"}):"—";
 
-  // reuse the design's own mini track-map paths, matched by name
-  const PATHS={}; try{ TRACKS.forEach(t=>PATHS[t.n.toLowerCase().slice(0,10)]=t.path); }catch(e){}
-  const pathFor=n=>PATHS[String(n).toLowerCase().slice(0,10)] ||
-    "M14,40 C14,22 46,16 74,22 C96,27 104,14 128,16 C168,19 200,22 196,36 C192,48 150,44 120,46 C80,49 40,54 22,50 C12,47 14,44 14,40Z";
+async function api(p,method="GET",body){
+  const o={method,credentials:"same-origin",headers:{}};
+  if(body!==undefined){o.headers["Content-Type"]="application/json";o.body=JSON.stringify(body);}
+  const r=await fetch(p,o);
+  if(r.status===401){location.href="/login";throw new Error("auth");}
+  if(!r.ok){let d="";try{d=(await r.json()).detail||""}catch(e){}throw new Error(d||`HTTP ${r.status}`);}
+  return r.status===204?null:r.json();
+}
+function toast(msg,bad){const t=document.createElement("div");t.className="toast"+(bad?" err":"");
+  t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3200);}
+function toggleTheme(){const r=document.documentElement;let c=r.getAttribute("data-theme");
+  if(!c)c=matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light";
+  r.setAttribute("data-theme",c==="dark"?"light":"dark");}
 
-  /* Default to the team that has run — not whichever sorts first by car number.
-     A saved choice (team switcher) wins. */
-  async function pickTeam(teams){
-    const saved=+localStorage.getItem("pk_team")||0;
-    const hit=teams.find(t=>t.id===saved); if(hit) return hit;
-    let best=teams[0], bestN=-1;
+/* ── modal ─────────────────────────────────────────────────────────────── */
+function modal(title,fields,onSubmit,okLabel){
+  const ov=document.createElement("div");ov.className="pk-ov";
+  ov.innerHTML=`<div class="pk-md"><h3>${esc(title)}</h3><div class="pk-bd">
+    ${fields.map(f=>`<div><label>${esc(f.label)}</label>${
+      f.type==="select"?`<select name="${f.name}">${f.options.map(o=>`<option value="${esc(o[0])}">${esc(o[1])}</option>`).join("")}</select>`
+      :f.type==="textarea"?`<textarea name="${f.name}" rows="3">${esc(f.value||"")}</textarea>`
+      :`<input name="${f.name}" placeholder="${esc(f.ph||"")}" value="${esc(f.value??"")}" ${f.type==="date"?'type="date"':""}>`}</div>`).join("")}
+    <div class="pk-err"></div></div>
+    <div class="pk-ft"><button class="btn" data-x>Cancel</button>
+    <button class="btn primary" data-ok>${esc(okLabel||"Save")}</button></div></div>`;
+  document.body.appendChild(ov);
+  const close=()=>ov.remove();
+  ov.querySelector("[data-x]").onclick=close; ov.onclick=e=>{if(e.target===ov)close();};
+  ov.querySelector("[data-ok]").onclick=async()=>{
+    const v={};$$("input,select,textarea",ov).forEach(i=>v[i.name]=i.value);
+    const b=ov.querySelector("[data-ok]");b.disabled=true;b.textContent="Saving…";
+    try{ await onSubmit(v); close(); await refresh(); }
+    catch(e){ ov.querySelector(".pk-err").textContent=e.message; b.disabled=false; b.textContent=okLabel||"Save"; }
+  };
+  ov.querySelector("input,select,textarea")?.focus();
+  return ov;
+}
+function confirmModal(title,msg,onYes,okLabel){
+  const ov=document.createElement("div");ov.className="pk-ov";
+  ov.innerHTML=`<div class="pk-md"><h3>${esc(title)}</h3>
+    <div class="pk-bd"><div style="color:var(--dim);font-size:13.5px;line-height:1.55">${esc(msg)}</div>
+    <div class="pk-err"></div></div>
+    <div class="pk-ft"><button class="btn" data-x>Cancel</button>
+    <button class="btn primary" data-ok>${esc(okLabel||"Confirm")}</button></div></div>`;
+  document.body.appendChild(ov);
+  ov.querySelector("[data-x]").onclick=()=>ov.remove(); ov.onclick=e=>{if(e.target===ov)ov.remove();};
+  ov.querySelector("[data-ok]").onclick=async()=>{
+    try{ await onYes(); ov.remove(); await refresh(); }
+    catch(e){ ov.querySelector(".pk-err").textContent=e.message; }
+  };
+}
+function notice(title,msg){confirmModal(title,msg,async()=>{},"OK");}
+
+/* ── state ─────────────────────────────────────────────────────────────── */
+const ST={me:null,teams:[],team:null,tracks:[],sessions:[],laps:[],setups:[],
+          checklists:[],parts:[],questions:[],series:[],templates:[],starters:[],cars:[],dossier:null,
+          published:new Set(),view:"overview"};
+
+async function loadAll(){
+  const [me,teams,tracks,pub,series]=await Promise.all([
+    api("/auth/me").catch(()=>null), api("/api/racing/teams"),
+    api("/api/racing/tracks"), fetch("/api/public/teams").then(r=>r.json()).catch(()=>[]),
+    api("/api/racing/series").catch(()=>[])]);
+  ST.series=series;
+  ST.me=me; ST.teams=teams; ST.tracks=tracks;
+  ST.published=new Set(pub.map(p=>String(p.car_number)));
+  const saved=+localStorage.getItem("pk_team")||0;
+  ST.team=teams.find(t=>t.id===saved)||null;
+  if(!ST.team && teams.length){
+    // default to the team that has actually run, not whichever sorts first
+    let best=teams[0],bn=-1;
     for(const t of teams){
       const n=await api(`/api/racing/teams/${t.id}/sessions`).then(x=>x.length).catch(()=>0);
-      if(n>bestN){bestN=n;best=t;}
+      if(n>bn){bn=n;best=t;}
     }
-    return best;
+    ST.team=best;
   }
+  if(ST.team){
+    const [s,l,su,cl,pa]=await Promise.all([
+      api(`/api/racing/teams/${ST.team.id}/sessions`).catch(()=>[]),
+      api(`/api/racing/teams/${ST.team.id}/laps`).catch(()=>[]),
+      api(`/api/racing/setups?team_id=${ST.team.id}`).catch(()=>[]),
+      api(`/api/racing/checklists?team_id=${ST.team.id}`).catch(()=>[]),
+      api(`/api/racing/parts?team_id=${ST.team.id}`).catch(()=>[])]);
+    ST.sessions=s; ST.laps=l; ST.setups=su; ST.checklists=cl; ST.parts=pa;
+    ST.questions=await api(`/api/racing/questions?team_id=${ST.team.id}`).catch(()=>[]);
+    ST.cars=await api(`/api/racing/cars?team_id=${ST.team.id}`).catch(()=>[]);
+    const tpl=await api("/api/racing/templates").catch(()=>({templates:[],starters:[]}));
+    ST.templates=tpl.templates||[]; ST.starters=tpl.starters||[];
+  } else { ST.sessions=[];ST.laps=[];ST.setups=[];ST.checklists=[];ST.parts=[]; }
+}
+async function refresh(){ await loadAll(); render(); }
 
-  async function boot(){
-    let sum,teams;
-    try{ [sum,teams]=await Promise.all([api("/api/racing/summary"),api("/api/racing/teams")]); }
-    catch(e){ if(e.message!=="auth") console.error(e); return; }
-    const team=await pickTeam(teams); if(!team) return;
-    window.PK_TEAM=team; window.PK_TEAMS=teams;
+/* ── chrome ────────────────────────────────────────────────────────────── */
+function renderChrome(){
+  const t=ST.team;
+  $("#who").textContent=(ST.me?.username||"?").slice(0,2).toUpperCase();
+  $("#c-tracks").textContent=ST.tracks.length;
+  $("#c-setups").textContent=ST.setups.length;
+  $("#c-laps").textContent=ST.laps.length;
+  $("#c-checks").textContent=ST.checklists.length;
+  $("#c-parts").textContent=ST.parts.length;
 
-    // top bar context
-    const no=$(".ctx .car-no"), meta=$(".ctx-meta");
-    if(no) no.textContent=team.car_number;
-    if(meta) meta.innerHTML=`<b>${esc(team.name)}</b><span>${esc(team.class)} · ${esc(team.cars?.[0]?.model||team.series)}</span>`;
-
-    // overview KPIs
-    const k=$$("#v-overview .grid.kpis .kpi");
-    if(k.length>=4){
-      k[0].querySelector(".big").textContent=fmt(sum.best_lap_ms);
-      k[0].querySelector(".sub").innerHTML=`across ${sum.laps} logged laps`;
-      k[1].querySelector(".big").textContent=sum.teams;
-      k[1].querySelector(".sub").innerHTML=`cars / programs`;
-      k[2].querySelector(".big").textContent=sum.setups;
-      k[2].querySelector(".sub").innerHTML=`on ${sum.tracks_available} circuits`;
-      k[3].querySelector(".big").textContent=sum.parts_needing_service;
-      k[3].querySelector(".sub").innerHTML=`life-limited parts`;
-    }
-
-    // TRACKS
-    try{
-      const tr=await api("/api/racing/tracks");
-      const g=$("#trackGrid");
-      if(g) g.innerHTML=tr.map(t=>`<div class="card trackcard" onclick="go('times')">
-        <div class="top"><div><h4>${esc(t.name)}</h4><div class="loc">${esc(t.location)}</div></div>
-          <span class="pill neutral">${esc(t.layout)}</span></div>
-        <div class="layout"><svg viewBox="0 0 210 70" fill="none" stroke="var(--accent)" stroke-width="3"
-          stroke-linejoin="round" stroke-linecap="round"><path d="${pathFor(t.name)}"/></svg></div>
-        <div class="foot"><span>${t.turns??"—"} turns · ${t.length_km?t.length_km.toFixed(3)+" km":"—"}</span>
-          <span class="mono" style="color:var(--accent)">${esc(t.series_tag)}</span></div></div>`).join("");
-    }catch(e){}
-
-    // LAP TIMES
-    try{
-      const [sess,laps]=await Promise.all([
-        api(`/api/racing/teams/${team.id}/sessions`), api(`/api/racing/teams/${team.id}/laps`)]);
-      const tb=$$("#v-times table tbody");
-      if(tb[0]) tb[0].innerHTML=sess.map(s=>`<tr><td style="text-transform:uppercase">${esc(s.session_type)}</td>
-        <td class="num">${s.session_date?new Date(s.session_date).toLocaleDateString():"—"}</td>
-        <td class="num">${s.lap_count}</td><td class="num">${fmt(s.best_ms)}</td>
-        <td class="num"><span class="pill ${s.visibility==='public'?'pub':'team'}">${esc(s.visibility)}</span></td></tr>`).join("");
-      if(tb[1]) tb[1].innerHTML=laps.map(l=>`<tr><td class="mono" style="text-transform:uppercase">${esc(l.session_type)}</td>
-        <td>${esc(l.driver||"—")}</td><td><span class="pill neutral">${esc(l.tire_compound||"—")}</span></td>
-        <td class="num">${l.lap_no}</td>
-        <td class="num ${l.is_fastest?'fastest':(l.is_pb?'pb':'')}">${fmt(l.lap_time_ms)}</td></tr>`).join("");
-      const rec=$$("#v-overview table tbody")[0];
-      if(rec) rec.innerHTML=laps.slice(0,4).map(l=>`<tr><td>${esc(l.session_type.toUpperCase())} · ${esc(l.event||"")}</td>
-        <td>${esc(l.track)}</td><td>${esc(l.driver||"—")}</td>
-        <td class="num ${l.is_fastest?'fastest':(l.is_pb?'pb':'')}">${fmt(l.lap_time_ms)}</td>
-        <td><span class="pill ${l.visibility==='public'?'pub':'team'}">${esc(l.visibility)}</span></td></tr>`).join("");
-    }catch(e){}
-
-    // SETUP SHEET
-    try{
-      const sheets=await api("/api/racing/setups");
-      if(sheets.length){
-        const d=await api("/api/racing/setups/"+encodeURIComponent(sheets[0].setup_key));
-        const head=$("#v-setup .page-head");
-        if(head){ const h=head.querySelector("h1"), e2=head.querySelector(".eyebrow"), p=head.querySelector("p");
-          if(e2) e2.innerHTML=`Setup Sheet · <span class="mono">${esc(d.setup_key)}</span>`;
-          if(h) h.textContent=d.track;
-          if(p) p.innerHTML=`baseline <b>${esc(d.baseline||"—")}</b> · rev ${esc(d.revision_label)} · <span class="pill ${d.visibility==='public'?'pub':'team'}">${esc(d.visibility)}</span>`; }
-        const groups={}; d.values.forEach(v=>(groups[v.group_name||"Other"] ||= []).push(v));
-        const body=$("#v-setup .guard__body");
-        if(body) body.innerHTML=Object.entries(groups).map(([g,vs])=>`<div class="card">
-          <div class="card-h"><h3>${esc(g)}</h3></div><div style="padding:12px 16px">
-          ${vs.map(v=>`<div class="spec"><span class="k">${esc(v.attr_key)}</span>
-            <span class="v">${esc(v.attr_value)}<span class="u">${esc(v.unit||"")}</span></span></div>`).join("")}
-          </div></div>`).join("") +
-          (d.notes?`<div class="card"><div class="card-h"><h3>Engineer notes</h3></div>
-           <div style="padding:12px 16px"><p class="hint" style="margin:0;line-height:1.6">${esc(d.notes)}</p></div></div>`:"");
-      }
-    }catch(e){}
-
-    // PARTS
-    try{
-      const parts=await api("/api/racing/parts");
-      const tb=$("#v-parts table tbody");
-      const col=s=>s==="over"?"var(--red)":s==="service_soon"?"var(--yellow)":"var(--green)";
-      if(tb) tb.innerHTML=parts.map(p=>`<tr><td class="mono">${esc(p.part_number)}</td>
-        <td>${esc(p.part_name)}</td><td class="mono">rev ${esc(p.part_revision)}</td>
-        <td class="num">${p.hours_used} h</td><td class="num">${p.hours_limit??"—"}</td>
-        <td><span class="lifebar"><i style="width:${Math.min(p.life_pct??0,100)}%;background:${col(p.status)}"></i></span></td>
-        <td><span class="pill ${p.status==='over'?'crit':p.status==='service_soon'?'warn':'ok'}">${esc(p.status.replace("_"," "))}</span></td></tr>`).join("");
-      const pk=$$("#v-parts .grid.kpis .kpi");
-      if(pk.length>=4){ pk[0].querySelector(".big").textContent=parts.length;
-        pk[1].querySelector(".big").textContent=parts.filter(p=>p.hours_limit).length;
-        pk[2].querySelector(".big").textContent=parts.filter(p=>p.status!=="ok").length; }
-    }catch(e){}
-
-    // CHART (replace the mock season trend with real laps)
-    try{
-      const laps=await api(`/api/racing/teams/${team.id}/laps`);
-      if(laps.length && typeof lineChart==="function"){
-        const byTime=[...laps].sort((a,b)=>(a.session_date||"").localeCompare(b.session_date||""));
-        const pts=byTime.map((l,i)=>({y:l.lap_time_ms/1000,
-          t:l.session_type.toUpperCase(), big:l.is_fastest,
-          c:l.is_fastest?"var(--purple)":(l.is_pb?"var(--green)":undefined),
-          lab:l.is_fastest?fmt(l.lap_time_ms):undefined}));
-        const ys=pts.map(p=>p.y);
-        const opt={color:"var(--accent)",ymin:Math.min(...ys)-0.6,ymax:Math.max(...ys)+0.6};
-        const a=document.getElementById("seasonChart"), b=document.getElementById("weekendChart");
-        if(a) lineChart(a,pts,opt);
-        if(b) lineChart(b,pts,opt);
-        $$("#v-overview .legend span").forEach((el,i)=>{ if(i===0) el.innerHTML='<i style="background:var(--accent)"></i>Lap time (s)'; });
-      }
-    }catch(e){}
-
-    // FAN REACH (real follower count, not the mock 1,847)
-    try{
-      const pub=await fetch("/api/public/teams").then(r=>r.json()).catch(()=>[]);
-      const isPub=pub.some(p=>String(p.car_number)===String(team.car_number));
-      const h=$$("#v-overview h3").find(el=>/fans following/i.test(el.textContent));
-      if(h) h.textContent = isPub
-        ? `#${team.car_number} is published to fans`
-        : `#${team.car_number} is not published yet`;
-      const p=h&&h.nextElementSibling;
-      if(p) p.innerHTML = isPub
-        ? 'Fans see the public slice below. <a href="/paddock" style="color:var(--purple)">Open the Fan Zone →</a>'
-        : 'Publish the team from the pill in the top bar to make it visible to fans.';
-    }catch(e){}
-
-    // THIS WEEKEND (real checklist, not the mock four rows)
-    try{
-      const cls=await api("/api/racing/checklists");
-      const box=$$("#v-overview .card").find(c=>/this weekend/i.test(c.querySelector(".card-h h3")?.textContent||""));
-      const cl=cls[0];
-      if(box&&cl){
-        const h3=box.querySelector(".card-h h3"); if(h3) h3.textContent=cl.name;
-        const eb=box.querySelector(".card-h .eyebrow"); if(eb) eb.textContent=`${cl.done} / ${cl.total} signed off`;
-        box.querySelectorAll(".check").forEach(el=>el.remove());
-        const first=box.querySelector("div[style*='padding']");
-        if(first) cl.items.slice().reverse().forEach(it=>{
-          const d=document.createElement("div");
-          d.className="check"+(it.is_done?" done":"");
-          d.innerHTML=`<div class="box">${it.is_done?"✓":""}</div><div class="txt">${esc(it.label)}</div><div class="who">${esc(it.assigned_role||"—")}</div>`;
-          first.prepend(d);
-        });
-      }
-    }catch(e){}
-
-    // CHECKLISTS
-    try{
-      const cls=await api("/api/racing/checklists");
-      const cards=$$("#v-checklists .card");
-      cls.slice(0,cards.length).forEach((c,i)=>{
-        const card=cards[i];
-        card.querySelector(".card-h h3").textContent=c.name;
-        const badge=card.querySelector(".card-h .pill");
-        if(badge){ badge.textContent=`${c.done} / ${c.total}`;
-          badge.className="pill "+(c.done===c.total?"ok":"warn"); }
-        const body=card.querySelector("div[style*='padding']");
-        if(body) body.innerHTML=c.items.map(it=>`<div class="check ${it.is_done?'done':''}">
-          <div class="box">${it.is_done?"✓":""}</div><div class="txt">${esc(it.label)}</div>
-          <div class="who">${esc(it.assigned_role||"—")}</div></div>`).join("");
-      });
-    }catch(e){}
-  }
-  if(document.readyState!=="loading") boot(); else addEventListener("DOMContentLoaded",boot);
-})();
-</script>
-<script>
-/* ── WRITE ACTIONS + PUBLISH CONTROLS (issues #3, #4) ───────────────────────
-   Adds the operating controls to the existing design without touching its
-   markup: log laps, create events/sessions, sign off checklist items, log part
-   hours, and publish/unpublish to the fan side. Writes go through the gated
-   API (write to create, release to publish); the page reloads after a write so
-   what you see always came from the database. */
-(function(){
-  const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
-  const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-  const fmt=ms=>ms==null?"—":`${Math.floor(ms/60000)}:${((ms%60000)/1000).toFixed(3).padStart(6,"0")}`;
-  const toMs=s=>{const m=String(s).trim().match(/^(?:(\d+):)?(\d+(?:\.\d+)?)$/);
-    return m?Math.round((+(m[1]||0))*60000+parseFloat(m[2])*1000):null;};
-
-  async function api(p,method="GET",body){
-    const o={method,credentials:"same-origin",headers:{}};
-    if(body!==undefined){o.headers["Content-Type"]="application/json";o.body=JSON.stringify(body);}
-    const r=await fetch(p,o);
-    if(r.status===401){location.href="/login";throw new Error("auth");}
-    if(!r.ok){let d="";try{d=(await r.json()).detail||""}catch(e){}
-      throw new Error(d||`${p} → ${r.status}`);}
-    return r.status===204?null:r.json();
-  }
-
-  /* modal in the page's own visual language */
-  const css=document.createElement("style");
-  css.textContent=`
-  .pk-ov{position:fixed;inset:0;background:rgba(4,8,11,.72);z-index:200;display:grid;place-items:center;padding:20px}
-  .pk-md{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);width:min(460px,100%);overflow:hidden}
-  .pk-md h3{font-size:15px;padding:15px 18px;border-bottom:1px solid var(--border);margin:0}
-  .pk-bd{padding:16px 18px;display:flex;flex-direction:column;gap:11px}
-  .pk-bd label{font-family:var(--f-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:5px}
-  .pk-bd input,.pk-bd select{width:100%;font:inherit;font-size:14px;background:var(--surface-2);border:1px solid var(--border);
-    color:var(--text);border-radius:9px;padding:9px 11px}
-  .pk-bd input:focus,.pk-bd select:focus{outline:2px solid var(--accent);outline-offset:1px}
-  .pk-ft{display:flex;gap:9px;justify-content:flex-end;padding:13px 18px;border-top:1px solid var(--border)}
-  .pk-err{color:var(--red);font-size:12.5px;min-height:1em}
-  .pk-act{font:inherit;font-size:12px;font-weight:650;border:1px solid var(--border-strong);background:var(--surface);
-    color:var(--text);padding:5px 11px;border-radius:8px;cursor:pointer;margin-left:6px}
-  .pk-act.go{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
-  .pk-act.pub{background:var(--green-bg);color:var(--green);border-color:transparent}
-  .pk-act.prv{background:var(--purple-bg);color:var(--purple);border-color:transparent}
-  .check{cursor:pointer}`;
-  document.head.appendChild(css);
-
-  function modal(title,fields,onSubmit){
-    const ov=document.createElement("div"); ov.className="pk-ov";
-    ov.innerHTML=`<div class="pk-md"><h3>${esc(title)}</h3><div class="pk-bd">
-      ${fields.map(f=>`<div><label>${esc(f.label)}</label>${
-        f.type==="select"
-          ? `<select name="${f.name}">${f.options.map(o=>`<option value="${esc(o[0])}">${esc(o[1])}</option>`).join("")}</select>`
-          : `<input name="${f.name}" placeholder="${esc(f.ph||"")}" value="${esc(f.value||"")}">`}</div>`).join("")}
-      <div class="pk-err"></div></div>
-      <div class="pk-ft"><button class="btn" data-x>Cancel</button><button class="btn primary" data-ok>Save</button></div></div>`;
-    document.body.appendChild(ov);
-    const close=()=>ov.remove();
-    ov.querySelector("[data-x]").onclick=close;
-    ov.onclick=e=>{if(e.target===ov)close();};
-    ov.querySelector("[data-ok]").onclick=async()=>{
-      const v={}; $$("input,select",ov).forEach(i=>v[i.name]=i.value);
-      const btn=ov.querySelector("[data-ok]"); btn.disabled=true; btn.textContent="Saving…";
-      try{ await onSubmit(v); location.reload(); }
-      catch(e){ ov.querySelector(".pk-err").textContent=e.message; btn.disabled=false; btn.textContent="Save"; }
-    };
-    ov.querySelector("input,select")?.focus();
-    return ov;
-  }
-  function notice(title,msg){
-    const ov=document.createElement("div"); ov.className="pk-ov";
-    ov.innerHTML=`<div class="pk-md"><h3>${esc(title)}</h3>
-      <div class="pk-bd"><div style="color:var(--dim);font-size:13.5px;line-height:1.5">${esc(msg)}</div></div>
-      <div class="pk-ft"><button class="btn primary" data-x>OK</button></div></div>`;
-    document.body.appendChild(ov);
-    const c=()=>ov.remove(); ov.querySelector("[data-x]").onclick=c;
-    ov.onclick=e=>{if(e.target===ov)c();};
-  }
-  function confirmModal(title,msg,onYes){
-    const ov=document.createElement("div"); ov.className="pk-ov";
-    ov.innerHTML=`<div class="pk-md"><h3>${esc(title)}</h3>
-      <div class="pk-bd"><div style="color:var(--dim);font-size:13.5px;line-height:1.5">${esc(msg)}</div>
-      <div class="pk-err"></div></div>
-      <div class="pk-ft"><button class="btn" data-x>Cancel</button>
-      <button class="btn primary" data-ok>Publish</button></div></div>`;
-    document.body.appendChild(ov);
-    ov.querySelector("[data-x]").onclick=()=>ov.remove();
-    ov.onclick=e=>{if(e.target===ov)ov.remove();};
-    ov.querySelector("[data-ok]").onclick=async()=>{
-      try{ await onYes(); }catch(e){ ov.querySelector(".pk-err").textContent=e.message; }
-    };
-  }
-  const btn=(label,cls,fn)=>{const b=document.createElement("button");
-    b.className="pk-act "+(cls||""); b.textContent=label; b.onclick=e=>{e.stopPropagation();fn();}; return b;};
-
-  async function init(){
-    let teams,tracks,sessions,pub;
-    try{
-      [teams,tracks]=await Promise.all([api("/api/racing/teams"),api("/api/racing/tracks")]);
-      pub=await fetch("/api/public/teams").then(r=>r.json()).catch(()=>[]);
-    }catch(e){ return; }
-    const team=window.PK_TEAM||teams[0]; if(!team) return;
-    sessions=await api(`/api/racing/teams/${team.id}/sessions`).catch(()=>[]);
-
-    /* team switcher — the workspace was defaulting to whichever team sorted
-       first, which could be one with no sessions at all. */
-    const ctx=$(".ctx");
-    if(ctx&&teams.length>1&&!$(".pk-team",ctx)){
-      const sel=document.createElement("select");
-      sel.className="pk-team";
-      sel.style.cssText="margin-left:10px;font:inherit;font-size:12.5px;background:var(--surface-2);"+
-        "border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 8px";
-      sel.innerHTML=teams.map(t=>`<option value="${t.id}" ${t.id===team.id?"selected":""}>#${esc(t.car_number)} ${esc(t.name)}</option>`).join("");
-      sel.onchange=()=>{ localStorage.setItem("pk_team",sel.value); location.reload(); };
+  const ctx=$("#ctx");
+  if(!t){ ctx.innerHTML=`<div class="ctx-meta"><b>No team yet</b><span>create one to begin</span></div>`; }
+  else{
+    const isPub=ST.published.has(String(t.car_number));
+    ctx.innerHTML=`<div class="car-no">${esc(t.car_number||"—")}</div>
+      <div class="ctx-meta"><b>${esc(t.name)}</b>
+      <span>${esc([t.class,t.series].filter(Boolean).join(" · ")||"—")}</span></div>`;
+    if(ST.teams.length>1){
+      const sel=document.createElement("select");sel.className="pk-sel";
+      sel.innerHTML=ST.teams.map(x=>`<option value="${x.id}" ${x.id===t.id?"selected":""}>#${esc(x.car_number)} ${esc(x.name)}</option>`).join("");
+      sel.onchange=async()=>{localStorage.setItem("pk_team",sel.value);await refresh();};
       ctx.appendChild(sel);
     }
-    const events=[...new Map(sessions.map(s=>[s.event,s])).values()];
-    const isPublic=pub.some(p=>String(p.car_number)===String(team.car_number));
-
-    /* ── #4 publish the team (top bar) ── */
-    const bar=$(".ctx");
-    if(bar){
-      bar.appendChild(btn(isPublic?"● Public":"○ Private", isPublic?"pub":"prv", async()=>{
-        await api(`/api/racing/teams/${team.id}/public`,"PATCH",{is_public:!isPublic});
-        location.reload();
-      }));
-    }
-
-    /* ── #3 log a lap / new session (Lap Times header) ── */
-    const lapHead=$$("#v-times .card-h")[0];
-    if(lapHead){
-      lapHead.appendChild(btn("＋ Log lap","go",()=>{
-        if(!sessions.length) return notice("No sessions yet",
-          "Create a session first — use ＋ Session, then log laps against it.");
-        modal("Log a lap",[
-          {label:"Session",name:"run_session_id",type:"select",
-           options:sessions.map(s=>[s.id,`${s.session_type.toUpperCase()} · ${s.track}`])},
-          {label:"Lap number",name:"lap_no",ph:"12"},
-          {label:"Lap time",name:"t",ph:"1:41.208"},
-          {label:"Tire",name:"tire_compound",ph:"Med"},
-        ],async v=>{
-          const ms=toMs(v.t); if(!ms) throw new Error("Time must look like 1:41.208");
-          await api("/api/racing/laps","POST",{run_session_id:+v.run_session_id,
-            lap_no:+v.lap_no||1, lap_time_ms:ms, tire_compound:v.tire_compound||""});
-        });
-      }));
-      lapHead.appendChild(btn("＋ Session","",()=>{
-        modal("New session",[
-          {label:"Event",name:"event",type:"select",
-           options:[...events.map(e=>[e.event,e.event]),["__new","+ New event…"]]},
-          {label:"New event name (if above)",name:"newname",ph:"Six Hours of The Glen"},
-          {label:"Track (for new event)",name:"track_id",type:"select",
-           options:tracks.map(t=>[t.id,t.name])},
-          {label:"Session type",name:"session_type",type:"select",
-           options:[["fp1","FP1"],["fp2","FP2"],["fp3","FP3"],["qual","Qualifying"],
-                    ["warmup","Warmup"],["race","Race"],["test","Test"]]},
-        ],async v=>{
-          let eventId;
-          if(v.event==="__new"){
-            const ev=await api("/api/racing/events","POST",{team_id:team.id,
-              track_id:+v.track_id, name:v.newname||"New event"});
-            eventId=ev.id;
-          }else{
-            const m=sessions.find(s=>s.event===v.event); eventId=m?m.event_id:null;
-            if(!eventId){ const ev=await api("/api/racing/events","POST",
-              {team_id:team.id,track_id:+v.track_id,name:v.event}); eventId=ev.id; }
-          }
-          await api("/api/racing/sessions","POST",
-            {event_id:eventId,session_type:v.session_type,session_date:new Date().toISOString()});
-        });
-      }));
-    }
-
-    /* ── #4 publish/unpublish each session (session table) ── */
-    const sessTbl=$$("#v-times table")[0];
-    if(sessTbl) $$("tbody tr",sessTbl).forEach((tr,i)=>{
-      const s=sessions[i]; if(!s) return;
-      const cell=tr.lastElementChild; if(!cell) return;
-      const on=s.visibility==="public";
-      cell.appendChild(btn(on?"Unpublish":"Publish", on?"prv":"pub", async()=>{
-        await api(`/api/racing/sessions/${s.id}/visibility`,"PATCH",
-          {visibility:on?"team":"public"});
-        location.reload();
-      }));
-    });
-
-    /* ── #4 publish the setup sheet ── */
-    try{
-      const sheets=await api("/api/racing/setups");
-      const head=$("#v-setup .page-head");
-      if(head&&sheets.length){
-        const s=sheets[0], on=s.visibility==="public";
-        head.appendChild(btn(on?"Unpublish sheet":"Publish sheet", on?"prv":"pub", async()=>{
-          if(on){ await api(`/api/racing/setups/${s.id}/visibility`,"PATCH",{visibility:"team"});
-                  return location.reload(); }
-          confirmModal("Publish this setup sheet?",
-            "Corner weights, dampers, alignment and aero become visible to fans.",
-            async()=>{ await api(`/api/racing/setups/${s.id}/visibility`,"PATCH",{visibility:"public"});
-                       location.reload(); });
-        }));
-      }
-    }catch(e){}
-
-    /* ── #3 checklist sign-off (click an item) ── */
-    try{
-      const cls=await api("/api/racing/checklists");
-      const cards=$$("#v-checklists .card");
-      cls.slice(0,cards.length).forEach((c,ci)=>{
-        $$(".check",cards[ci]).forEach((el,ii)=>{
-          const it=c.items[ii]; if(!it||!it.id) return;
-          el.title="Click to sign off";
-          el.onclick=async()=>{ await api(`/api/racing/checklist-items/${it.id}?done=${!it.is_done}`,"PATCH");
-            location.reload(); };
-        });
-      });
-    }catch(e){}
-
-    /* ── #3 log part hours (click a parts row) ── */
-    try{
-      const parts=await api("/api/racing/parts");
-      $$("#v-parts table tbody tr").forEach((tr,i)=>{
-        const p=parts[i]; if(!p) return;
-        tr.style.cursor="pointer"; tr.title="Click to log hours";
-        tr.onclick=()=>modal(`Log hours — ${p.part_number}`,[
-          {label:"Hours used",name:"hours_used",value:String(p.hours_used)},
-        ],async v=>{ await api(`/api/racing/parts/${p.id}/hours`,"PATCH",{hours_used:parseFloat(v.hours_used)||0}); });
-      });
-    }catch(e){}
+    const b=document.createElement("button");
+    b.className="pk-act "+(isPub?"pub":"prv");
+    b.textContent=isPub?"● Public":"○ Private";
+    b.title=isPub?"Visible in the Fan Zone":"Not visible to fans";
+    b.onclick=()=>confirmModal(isPub?"Unpublish this team?":"Publish this team?",
+      isPub?"Fans will no longer see this team or its published sessions."
+           :"Fans will see this team and any sessions you have published. Setups stay private.",
+      async()=>{await api(`/api/racing/teams/${t.id}/public`,"PATCH",{is_public:!isPub});
+                toast(isPub?"Unpublished":"Published to fans");},
+      isPub?"Unpublish":"Publish");
+    ctx.appendChild(b);
   }
-  addEventListener("load",()=>setTimeout(init,400));
+  // the event strip reflects the most recent real session
+  const last=ST.sessions[ST.sessions.length-1];
+  const evt=$("#evt");
+  if(last){ evt.style.display="";
+    evt.innerHTML=`<span class="dot"></span><div style="line-height:1.1">
+      <b>${esc(last.event)}</b><div style="font-size:10.5px;color:var(--dim)">${esc(last.track)} · ${dt(last.session_date)}</div></div>`;
+  } else evt.style.display="none";
+}
+
+/* ── views ─────────────────────────────────────────────────────────────── */
+const head=(eyebrow,title,sub,actions="")=>`<div class="page-head"><div>
+  <div class="eyebrow">${esc(eyebrow)}</div><h1>${esc(title)}</h1>
+  ${sub?`<p>${sub}</p>`:""}</div><div style="display:flex;gap:8px">${actions}</div></div>`;
+const empty=(title,msg,btn="")=>`<div class="card"><div class="empty"><b>${esc(title)}</b>${esc(msg)}${btn}</div></div>`;
+const visPill=v=>`<span class="pill ${v==="public"?"pub":"team"}">${esc(v)}</span>`;
+
+function needTeam(){
+  return empty("No team yet",
+    "A team is the car or programme you log sessions against.",
+    `<div><button class="btn primary" onclick="newTeam()">Create a team</button></div>`);
+}
+
+function viewOverview(){
+  if(!ST.team) return needTeam();
+  const best=ST.laps.length?Math.min(...ST.laps.map(l=>l.lap_time_ms)):null;
+  const due=ST.parts.filter(p=>p.status!=="ok").length;
+  const pubSessions=ST.sessions.filter(s=>s.visibility==="public").length;
+  const kpi=(k,v,s,col)=>`<div class="card pad kpi"><div class="eyebrow">${esc(k)}</div>
+    <div class="big"${col?` style="color:${col}"`:""}>${v}</div><div class="sub">${s}</div></div>`;
+  return head("Race engineering", ST.team.name,
+      `#${esc(ST.team.car_number)} · ${esc(ST.team.series||"—")} — everything logged for this car.`,
+      `<button class="btn" onclick="newSession()">+ Session</button>
+       <button class="btn primary" onclick="logLap()">+ Log lap</button>`)
+    + `<div class="grid kpis" style="margin-bottom:14px">
+      ${kpi("Best lap",fmt(best),`${ST.laps.length} lap${ST.laps.length===1?"":"s"} logged`,"var(--purple)")}
+      ${kpi("Sessions",ST.sessions.length,`${pubSessions} published to fans`)}
+      ${kpi("Setup sheets",ST.setups.length,`across ${ST.tracks.length} circuits`)}
+      ${kpi("Parts due service",due,due?"needs attention":"all within life",due?"var(--yellow)":null)}</div>`
+    + `<div class="grid two">
+      <div class="card"><div class="card-h"><h3>Lap trend</h3>
+        <span class="eyebrow">${ST.laps.length?"session fastest in purple":""}</span></div>
+        <div id="chart">${ST.laps.length?"":'<div class="empty">No laps yet. Log one to see the trend.</div>'}</div></div>
+      <div class="card"><div class="card-h"><h3>Checklist</h3>
+        <a class="hint" style="color:var(--accent);cursor:pointer" onclick="go('checklists')">All</a></div>
+        ${ST.checklists.length?`<div style="padding:6px 16px 12px">${ST.checklists[0].items.map(i=>
+          `<div class="check ${i.is_done?"done":""}" onclick="tick(${i.id},${!i.is_done})">
+            <div class="box">${i.is_done?"✓":""}</div><div class="txt">${esc(i.label)}</div>
+            <div class="who">${esc(i.assigned_role||"—")}</div></div>`).join("")}</div>`
+        :'<div class="empty">No checklist yet.<div><button class="btn" style="margin-top:10px" onclick="newChecklist()">Create one</button></div></div>'}</div></div>`
+    + `<div class="grid two" style="margin-top:14px">
+      <div class="card"><div class="card-h"><h3>Recent laps</h3>
+        <a class="hint" style="color:var(--accent);cursor:pointer" onclick="go('times')">All</a></div>
+        ${ST.laps.length?`<div class="tablewrap"><table>
+          <thead><tr><th>Session</th><th>Track</th><th>Driver</th><th class="num">Time</th><th>Visibility</th></tr></thead>
+          <tbody>${ST.laps.slice(0,5).map(l=>`<tr><td class="mono" style="text-transform:uppercase">${esc(l.session_type)}</td>
+            <td>${esc(l.track)}</td><td>${esc(l.driver||"—")}</td>
+            <td class="num ${l.is_fastest?"fastest":(l.is_pb?"pb":"")}">${fmt(l.lap_time_ms)}</td>
+            <td>${visPill(l.visibility)}</td></tr>`).join("")}</tbody></table></div>`
+        :'<div class="empty">No laps yet.</div>'}</div>
+      <div class="card pad"><div class="eyebrow" style="margin-bottom:10px">Fan visibility</div>
+        <div class="spec"><span class="k">This team</span><span class="v">${ST.published.has(String(ST.team.car_number))?'<span class="pill pub">Public</span>':'<span class="pill team">Private</span>'}</span></div>
+        <div class="spec"><span class="k">Sessions published</span><span class="v">${pubSessions} / ${ST.sessions.length}</span></div>
+        <div class="spec"><span class="k">Setups published</span><span class="v">${ST.setups.filter(s=>s.visibility==="public").length} / ${ST.setups.length}</span></div>
+        <div class="spec"><span class="k">Parts &amp; CAD</span><span class="v"><span class="pill team">Never public</span></span></div>
+        <p class="hint" style="margin:12px 0 0">Fans see published lap times and results. Setup sheets stay in the garage unless you publish them.</p></div></div>`;
+}
+
+function viewTracks(){
+  return head("Circuit library",`Track Data`,
+    `${ST.tracks.length} circuits available to every team.`,
+    `<button class="btn" onclick="filterTracks('')">All</button>
+     <button class="btn" onclick="filterTracks('IMSA')">IMSA</button>
+     <button class="btn" onclick="filterTracks('IndyCar')">IndyCar</button>`)
+    + `<div class="grid tracks" id="trackGrid">${trackCards(ST._tf||"")}</div>`;
+}
+function trackCards(f){
+  const list=ST.tracks.filter(t=>!f||(t.series_tag||"").includes(f));
+  if(!list.length) return empty("No circuits","Nothing matches that filter.");
+  return list.map(t=>{
+    const runs=ST.sessions.filter(s=>s.track===t.name).length;
+    return `<div class="card trackcard">
+      <div class="top"><div><h4>${esc(t.name)}</h4><div class="loc">${esc(t.location||"")}</div></div>
+        <span class="pill neutral">${esc(t.layout)}</span></div>
+      <div class="foot"><span>${t.turns??"—"} turns · ${t.length_km?t.length_km.toFixed(3)+" km":"—"}</span>
+        <span class="mono" style="color:${runs?"var(--accent)":"var(--faint)"}">${runs?runs+" session"+(runs===1?"":"s"):"not run"}</span></div></div>`;
+  }).join("");
+}
+function filterTracks(f){ST._tf=f;const g=$("#trackGrid");if(g)g.innerHTML=trackCards(f);}
+
+function viewTimes(){
+  if(!ST.team) return needTeam();
+  return head("All sessions","Lap Times",
+    `Times across every session logged for #${esc(ST.team.car_number)}.`,
+    `<button class="btn" onclick="importLaps()">⭱ Import</button>
+     <button class="btn" onclick="newSession()">+ Session</button>
+     <button class="btn primary" onclick="logLap()">+ Log lap</button>`)
+  + (ST.laps.length?`<div class="card" style="margin-bottom:14px">
+      <div class="card-h"><h3>Progression</h3><span class="eyebrow">purple = session fastest</span></div>
+      <div id="chart2"></div></div>`:"")
+  + `<div class="grid two"><div class="card"><div class="card-h"><h3>Session log</h3></div>
+    ${ST.sessions.length?`<div class="tablewrap"><table>
+      <thead><tr><th>Session</th><th>Event</th><th class="num">Laps</th><th class="num">Best</th><th>Fans</th></tr></thead>
+      <tbody>${ST.sessions.map(s=>`<tr><td class="mono" style="text-transform:uppercase">${esc(s.session_type)}</td>
+        <td>${esc(s.event)}<div class="hint">${esc(s.track)} · ${dt(s.session_date)}</div></td>
+        <td class="num">${s.lap_count}</td><td class="num">${fmt(s.best_ms)}</td>
+        <td>${visPill(s.visibility)}<button class="pk-act ${s.visibility==="public"?"prv":"pub"}"
+          onclick="pubSession(${s.id},'${s.visibility}')">${s.visibility==="public"?"Unpublish":"Publish"}</button></td></tr>`).join("")}
+      </tbody></table></div>`
+    :empty("No sessions yet","A session is a practice, qualifying or race run. Create one, then log laps against it.",
+      `<div><button class="btn primary" onclick="newSession()">Create a session</button></div>`)}</div>
+    <div class="card"><div class="card-h"><h3>Fan questions</h3>
+      <button class="pk-act go" onclick="askQuestion()">+ Ask</button></div>
+      ${ST.questions.length?`<div class="tablewrap"><table>
+        <thead><tr><th>Question</th><th class="num">Picks</th><th class="num">Pts</th><th>Status</th></tr></thead>
+        <tbody>${ST.questions.map(q=>`<tr><td>${esc(q.prompt)}
+          <div class="hint">${(q.options||[]).map(esc).join(" · ")}${q.correct_answer?` — answer: <b>${esc(q.correct_answer)}</b>`:""}</div></td>
+          <td class="num">${q.picks??0}</td><td class="num">${q.points}</td>
+          <td><span class="pill ${q.status==="resolved"?"ok":q.status==="locked"?"warn":"pub"}">${esc(q.status)}</span>
+            ${q.status!=="resolved"?`<button class="pk-act" onclick="qStatus(${q.id},'${q.status==="open"?"locked":"open"}')">${q.status==="open"?"Lock":"Reopen"}</button>
+            <button class="pk-act go" onclick="resolveQ(${q.id})">Resolve</button>`:""}</td></tr>`).join("")}
+        </tbody></table></div>`
+      :`<div class="empty">No questions yet. Ask fans to call a result and award points for correct picks.</div>`}
+    </div>
+    <div class="card"><div class="card-h"><h3>Fastest laps</h3></div>
+    ${ST.laps.length?`<div class="tablewrap"><table>
+      <thead><tr><th>Session</th><th>Driver</th><th>Tire</th><th class="num">Lap</th><th class="num">Time</th></tr></thead>
+      <tbody>${ST.laps.slice(0,12).map(l=>`<tr><td class="mono" style="text-transform:uppercase">${esc(l.session_type)}</td>
+        <td>${esc(l.driver||"—")}</td><td><span class="pill neutral">${esc(l.tire_compound||"—")}</span></td>
+        <td class="num">${l.lap_no}</td>
+        <td class="num ${l.is_fastest?"fastest":(l.is_pb?"pb":"")}">${fmt(l.lap_time_ms)}</td></tr>`).join("")}
+      </tbody></table></div>`:'<div class="empty">No laps yet.</div>'}</div></div>`;
+}
+
+function viewSetups(){
+  if(!ST.team) return needTeam();
+  const s=ST._setup;
+  return head("Engineering","Setup Sheets",
+    `Team-only by default — the crown-jewel IP.`,
+    `<button class="btn primary" onclick="newSetup()">+ New sheet</button>`)
+  + `<div class="grid two"><div class="card"><div class="card-h"><h3>Sheets on file</h3></div>
+    ${ST.setups.length?`<div class="tablewrap"><table>
+      <thead><tr><th>Key</th><th>Track</th><th>Rev</th><th>Visibility</th></tr></thead>
+      <tbody>${ST.setups.map(x=>`<tr style="cursor:pointer" onclick="openSetup('${esc(x.setup_key)}')">
+        <td class="mono">${esc(x.setup_key)}</td><td>${esc(x.track)}</td>
+        <td class="mono">${esc(x.revision_label)}</td><td>${visPill(x.visibility)}</td></tr>`).join("")}
+      </tbody></table></div>`
+    :empty("No setup sheets","Record corner weights, dampers, alignment, aero and tires per track.",
+      `<div><button class="btn primary" onclick="newSetup()">Create a sheet</button></div>`)}</div>
+    <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>Setup templates</h3>
+      <button class="pk-act go" onclick="newTemplate()">+ Template</button></div>
+      ${ST.templates.length?`<div class="pad">${ST.templates.map(t=>`<div class="spec">
+        <span class="k">${esc(t.name)}${t.series?` <span class="hint">· ${esc(t.series)}</span>`:""}</span>
+        <span class="v" style="font-weight:400">${t.fields.length} fields</span></div>`).join("")}
+        <p class="hint" style="margin:10px 0 0">Create a sheet, then apply a template to lay its fields out.</p></div>`
+      :`<div class="empty"><b>No templates yet</b>A template is your team's own field list —
+        an IndyCar sheet is not a GT3 sheet. Start from a built-in list and edit it.
+        <div>${ST.starters.map(k=>`<button class="btn" style="margin:8px 4px 0"
+          onclick="useStarter('${esc(k)}')">Use ${esc(k)}</button>`).join("")}</div></div>`}
+    </div>
+    <div class="card" id="setupPane">${s?setupPane(s):'<div class="card-h"><h3>Sheet detail</h3></div><div class="empty">Select a sheet.</div>'}</div></div>`;
+}
+function setupPane(d){
+  const g={}; (d.values||[]).forEach(v=>(g[v.group_name||"Values"] ||= []).push(v));
+  const pub=d.visibility==="public";
+  return `<div class="card-h"><h3>${esc(d.setup_key)} · ${esc(d.track)}</h3>
+    <span>${visPill(d.visibility)}<button class="pk-act ${pub?"prv":"pub"}" onclick="pubSetup(${d.id},'${d.visibility}')">${pub?"Unpublish":"Publish"}</button></span></div>
+    <div class="pad">
+      ${Object.keys(g).length?Object.entries(g).map(([n,vs])=>`<div class="eyebrow" style="margin:10px 0 6px">${esc(n)}</div>
+        ${vs.map(v=>`<div class="spec"><span class="k">${esc(v.attr_key)}</span>
+          <span class="v">${esc(v.attr_value)}<span class="u">${esc(v.unit||"")}</span></span></div>`).join("")}`).join("")
+        :'<p class="hint">No values yet — add the first one.</p>'}
+      ${d.notes?`<p class="hint" style="margin-top:12px;line-height:1.55">${esc(d.notes)}</p>`:""}
+      <div style="margin-top:14px;display:flex;gap:8px">
+        <button class="btn" onclick="addValue(${d.id})">+ Value</button>
+        <button class="btn" onclick="cloneSetup('${esc(d.setup_key)}')">Clone as revision</button>
+        ${ST.templates.length?`<button class="btn" onclick="applyTemplate(${d.id})">Apply template</button>`:""}
+        <button class="btn" onclick="importSetup(${d.id})">⭱ Import values</button>
+        </div></div>`;
+}
+
+function viewChecklists(){
+  if(!ST.team) return needTeam();
+  return head("Garage &amp; pit procedures","Checklists","Sign-offs record who and when.",
+    `<button class="btn primary" onclick="newChecklist()">+ New checklist</button>`)
+  + (ST.checklists.length?`<div class="grid two">${ST.checklists.map(c=>`<div class="card">
+      <div class="card-h"><h3>${esc(c.name)}</h3>
+        <span class="pill ${c.done===c.total&&c.total?"ok":"warn"}">${c.done} / ${c.total}</span></div>
+      <div style="padding:8px 16px 14px">${c.items.length?c.items.map(i=>
+        `<div class="check ${i.is_done?"done":""}" onclick="tick(${i.id},${!i.is_done})">
+          <div class="box">${i.is_done?"✓":""}</div><div class="txt">${esc(i.label)}</div>
+          <div class="who">${esc(i.assigned_role||"—")}</div></div>`).join("")
+        :'<p class="hint">No items.</p>'}</div></div>`).join("")}</div>`
+    : empty("No checklists","Reusable garage and pit procedures with sign-off.",
+        `<div><button class="btn primary" onclick="newChecklist()">Create a checklist</button></div>`));
+}
+
+function viewParts(){
+  if(!ST.team) return needTeam();
+  const col=s=>s==="over"?"var(--red)":s==="service_soon"?"var(--yellow)":"var(--green)";
+  return head("Service life","Parts &amp; CAD",
+    "Every tracked part across the team. These are real PLM parts — Paddock adds which car "
+    + "runs them and their life against limit. Open a car under "
+    + "<a style=\'color:var(--accent);cursor:pointer\' onclick=\'go(&quot;car&quot;)\'>Car &amp; Build</a> "
+    + "to see one chassis at a time.",
+    `<button class="btn" onclick="importParts()">⭱ Import</button>
+     <button class="btn" onclick="location.href='/app'">Open PLM</button>
+     <button class="btn primary" onclick="trackPart()">+ Track a part</button>`)
+  + (ST.parts.length?`<div class="card"><div class="card-h"><h3>Life-limited components</h3><span class="pill team">Team</span></div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Part No.</th><th>Description</th><th>Rev</th><th class="num">Used</th><th class="num">Limit</th><th>Life</th><th>Status</th></tr></thead>
+      <tbody>${ST.parts.map(p=>`<tr style="cursor:pointer" onclick="logHours(${p.id},'${esc(p.part_number)}',${p.hours_used})">
+        <td class="mono">${esc(p.part_number)}</td><td>${esc(p.part_name)}</td>
+        <td class="mono">${esc(p.part_revision)}</td><td class="num">${p.hours_used} h</td>
+        <td class="num">${p.hours_limit??"—"}</td>
+        <td><span class="lifebar"><i style="width:${Math.min(p.life_pct??0,100)}%;background:${col(p.status)}"></i></span>
+          <span class="mono hint"> ${p.life_pct!=null?p.life_pct+"%":""}</span></td>
+        <td><span class="pill ${p.status==="over"?"crit":p.status==="service_soon"?"warn":"ok"}">${esc(p.status.replace("_"," "))}</span></td></tr>`).join("")}
+      </tbody></table></div></div>`
+    : empty("No parts tracked","Track a PLM part against this car to monitor hours and cycles against its limit.",
+        `<div><button class="btn primary" onclick="trackPart()">Track a part</button>
+          <button class="btn" style="margin-left:8px" onclick="importParts()">Import a spreadsheet</button></div>`));
+}
+
+function viewCar(){
+  if(!ST.team) return needTeam();
+  const d=ST.dossier;
+  if(d) return carDossier(d);
+  const drv=ST.team.drivers||[];
+  return head("Chassis &amp; crew","Car &amp; Build",
+    "A car is the spine: what is fitted to it, what it has run, and how it was set up.",
+    `<button class="btn" onclick="addDriver()">+ Driver</button>
+     <button class="btn primary" onclick="addCar()">+ Car</button>`)
+  + (ST.cars.length?`<div class="grid tracks">${ST.cars.map(c=>`
+      <div class="card trackcard" onclick="openCar(${c.id})">
+        <div class="top"><div><h4>${esc(c.chassis)}</h4>
+          <div class="loc">${esc(c.model||"—")}</div></div>
+          <span class="pill neutral">#${esc(ST.team.car_number)}</span></div>
+        <div class="foot"><span>${esc(c.homologation||"no homologation recorded")}</span>
+          <span class="mono" style="color:var(--accent)">Open →</span></div></div>`).join("")}</div>`
+    : empty("No car recorded",
+        "Add the chassis you run. Sessions, parts and setup sheets all attach to a car.",
+        `<div><button class="btn primary" onclick="addCar()">Add a car</button></div>`))
+  + `<div class="card" style="margin-top:14px"><div class="card-h"><h3>Drivers</h3>
+      <button class="pk-act" onclick="addDriver()">+ Driver</button></div>
+      ${drv.length?`<div class="pad">${drv.map(x=>`<div class="spec">
+        <span class="k">${esc(x.name)}</span>
+        <span class="v" style="font-weight:400">${esc(x.country||"—")}</span></div>`).join("")}</div>`
+      :'<div class="empty">No drivers yet.</div>'}</div>`;
+}
+
+function carDossier(d){
+  const col=s=>s==="over"?"var(--red)":s==="service_soon"?"var(--yellow)":"var(--green)";
+  const t=d.totals;
+  const kpi=(k,v,sub,c)=>`<div class="card pad kpi"><div class="eyebrow">${esc(k)}</div>
+    <div class="big"${c?` style="color:${c}"`:""}>${v}</div><div class="sub">${esc(sub)}</div></div>`;
+  return `<span class="back" style="cursor:pointer;color:var(--accent);font-weight:600;display:inline-block;margin-bottom:12px"
+      onclick="closeCar()">← All cars</span>`
+    + head("Chassis", d.car.chassis,
+        `${esc(d.car.model||"—")}${d.car.homologation?` · ${esc(d.car.homologation)}`:""}`,
+        `<button class="btn" onclick="importParts()">⭱ Import parts</button>`)
+    + `<div class="grid kpis" style="margin-bottom:14px">
+      ${kpi("Best lap",fmt(t.best_lap_ms),`${t.laps} laps in ${t.sessions} sessions`,"var(--purple)")}
+      ${kpi("Sessions",t.sessions,"run on this chassis")}
+      ${kpi("Parts fitted",t.parts_fitted,"tracked for service life")}
+      ${kpi("Due service",t.parts_due,t.parts_due?"needs attention":"all within life",
+            t.parts_due?"var(--yellow)":null)}</div>
+    <div class="grid two">
+      <div class="card"><div class="card-h"><h3>Fitted parts &amp; service life</h3>
+        <span class="pill team">Team</span></div>
+        ${d.parts.length?`<div class="tablewrap"><table>
+          <thead><tr><th>Part</th><th>Rev</th><th class="num">Used</th><th>Life</th><th>Status</th></tr></thead>
+          <tbody>${d.parts.map(p=>`<tr style="cursor:pointer"
+            onclick="logHours(${p.id},'${esc(p.part_number)}',${p.hours_used})">
+            <td><span class="mono">${esc(p.part_number)}</span><div class="hint">${esc(p.part_name)}</div></td>
+            <td class="mono">${esc(p.part_revision)}</td>
+            <td class="num">${p.hours_used} h${p.hours_limit?` / ${p.hours_limit}`:""}</td>
+            <td><span class="lifebar"><i style="width:${Math.min(p.life_pct??0,100)}%;background:${col(p.status)}"></i></span></td>
+            <td><span class="pill ${p.status==="over"?"crit":p.status==="service_soon"?"warn":"ok"}">${esc(p.status.replace("_"," "))}</span></td>
+            </tr>`).join("")}</tbody></table></div>`
+        :`<div class="empty">Nothing tracked on this chassis yet.
+          <div><button class="btn" style="margin-top:10px" onclick="trackPart()">Track a part</button>
+          <button class="btn" style="margin:10px 0 0 8px" onclick="importParts()">Import a spreadsheet</button></div></div>`}
+      </div>
+      <div class="card"><div class="card-h"><h3>Setup sheets on this car</h3></div>
+        ${d.setups.length?`<div class="pad">${d.setups.map(x=>`<div class="spec" style="cursor:pointer"
+          onclick="go('setups');openSetup('${esc(x.setup_key)}')">
+          <span class="k"><span class="mono">${esc(x.setup_key)}</span> · ${esc(x.track)}</span>
+          <span class="v" style="font-weight:400">rev ${esc(x.revision_label)} ${visPill(x.visibility)}</span></div>`).join("")}</div>`
+        :`<div class="empty">No sheets attributed to this chassis.
+          <div class="hint" style="margin-top:8px">Set the car when you create a sheet and it will appear here.</div></div>`}
+      </div></div>
+    <div class="card" style="margin-top:14px"><div class="card-h"><h3>Sessions run</h3></div>
+      ${d.sessions.length?`<div class="tablewrap"><table>
+        <thead><tr><th>Session</th><th>Event</th><th>Track</th><th class="num">Laps</th><th class="num">Best</th><th>Fans</th></tr></thead>
+        <tbody>${d.sessions.map(x=>`<tr>
+          <td class="mono" style="text-transform:uppercase">${esc(x.session_type)}</td>
+          <td>${esc(x.event)}</td><td>${esc(x.track)}</td>
+          <td class="num">${x.lap_count}</td><td class="num">${fmt(x.best_ms)}</td>
+          <td>${visPill(x.visibility)}</td></tr>`).join("")}</tbody></table></div>`
+      :`<div class="empty">This chassis has not run yet. Create a session and pick this car.</div>`}
+    </div>`;
+}
+
+async function openCar(id){
+  try{ ST.dossier=await api(`/api/racing/cars/${id}`); render(); window.scrollTo({top:0}); }
+  catch(e){ toast(e.message,true); }
+}
+function closeCar(){ ST.dossier=null; render(); }
+
+/* ── chart (inline SVG, drawn from real laps) ───────────────────────────── */
+function drawChart(el,laps){
+  if(!el||!laps.length) return;
+  const pts=[...laps].sort((a,b)=>(a.session_date||"").localeCompare(b.session_date||""));
+  const W=640,H=200,pl=52,pr=14,pt=16,pb=28;
+  const ys=pts.map(p=>p.lap_time_ms/1000);
+  const lo=Math.min(...ys)-0.4, hi=Math.max(...ys)+0.4;
+  const X=i=>pl+(W-pl-pr)*(pts.length===1?0.5:i/(pts.length-1));
+  const Y=v=>pt+(H-pt-pb)*(1-(v-lo)/(hi-lo||1));
+  let grid="";
+  for(let r=0;r<=4;r++){const y=pt+(H-pt-pb)*r/4, v=hi-(hi-lo)*r/4;
+    grid+=`<line x1="${pl}" y1="${y}" x2="${W-pr}" y2="${y}" stroke="var(--border)"/>
+      <text x="${pl-8}" y="${y+3}" text-anchor="end" font-size="9" fill="var(--faint)" font-family="var(--f-mono)">${fmt(v*1000)}</text>`;}
+  let line="",area="";
+  pts.forEach((p,i)=>{const x=X(i),y=Y(p.lap_time_ms/1000);line+=(i?"L":"M")+x+","+y+" ";area+=(i?"L":"M")+x+","+y+" ";});
+  area+=`L${X(pts.length-1)},${H-pb} L${X(0)},${H-pb} Z`;
+  const dots=pts.map((p,i)=>{const x=X(i),y=Y(p.lap_time_ms/1000);
+    const c=p.is_fastest?"var(--purple)":(p.is_pb?"var(--green)":"var(--accent)");
+    return `<circle cx="${x}" cy="${y}" r="${p.is_fastest?4.5:3}" fill="${c}" stroke="var(--surface)" stroke-width="2"/>`+
+      (p.is_fastest?`<text x="${x}" y="${y-10}" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--purple)" font-family="var(--f-mono)">${fmt(p.lap_time_ms)}</text>`:"");}).join("");
+  const xl=pts.map((p,i)=>`<text x="${X(i)}" y="${H-8}" text-anchor="middle" font-size="9" fill="var(--faint)" font-family="var(--f-mono)">${esc(p.session_type.toUpperCase())}</text>`).join("");
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
+    <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="var(--accent)" stop-opacity=".22"/>
+      <stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+    ${grid}<path d="${area}" fill="url(#g1)"/>
+    <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}${xl}</svg>`;
+}
+
+/* ── actions ───────────────────────────────────────────────────────────── */
+function newTeam(){
+  modal("Create a team",[
+    {label:"Team name",name:"name",ph:"Meridian Autosport"},
+    {label:"Car number",name:"car_number",ph:"74"},
+    {label:"Series",name:"series",ph:"IMSA WeatherTech"},
+    {label:"Class",name:"class",ph:"GTD"},
+  ],async v=>{
+    if(!v.name.trim()) throw new Error("A team needs a name");
+    const key=(v.name+"-"+v.car_number).toUpperCase().replace(/[^A-Z0-9]+/g,"-").slice(0,60);
+    const t=await api("/api/racing/teams","POST",{team_key:key,name:v.name,
+      car_number:v.car_number,series:v.series,class:v.class});
+    localStorage.setItem("pk_team",t.id); toast("Team created");
+  },"Create");
+}
+function addCar(){
+  modal("Add a car",[{label:"Chassis",name:"chassis",ph:"MB-GT3-2024-074"},
+    {label:"Model",name:"model",ph:"Mercedes-AMG GT3"},
+    {label:"Homologation",name:"homologation",ph:"FIA GT3-2024-14"}],
+    async v=>{await api("/api/racing/cars","POST",{team_id:ST.team.id,...v});toast("Car added");});
+}
+function addDriver(){
+  modal("Add a driver",[{label:"Name",name:"name",ph:"Dan Reyes"},
+    {label:"Country",name:"country",ph:"USA"}],
+    async v=>{await api("/api/racing/drivers","POST",{team_id:ST.team.id,...v});toast("Driver added");});
+}
+function newSession(){
+  if(!ST.tracks.length) return notice("No circuits","The track library is empty.");
+  const evs=[...new Map(ST.sessions.map(s=>[s.event,s])).values()];
+  const ov=modal("New session",[
+    {label:"Event",name:"event",type:"select",
+     options:[...evs.map(e=>[String(e.event_id),e.event]),["__new","+ New event…"]]},
+    {label:"Series (new events)",name:"series_id",type:"select",
+     options:[["","— any / private test —"],...ST.series.map(x=>[x.id,x.name])]},
+    {label:"Event name",name:"newname",ph:"Six Hours of The Glen"},
+    {label:"Circuit",name:"track_id",type:"select",options:ST.tracks.map(t=>[t.id,t.name])},
+    {label:"Session type",name:"session_type",type:"select",
+     options:[["fp1","FP1"],["fp2","FP2"],["fp3","FP3"],["qual","Qualifying"],["warmup","Warmup"],["race","Race"],["test","Test"]]},
+    ...(ST.cars.length?[{label:"Car",name:"car_id",type:"select",
+      options:[["","— not specified —"],...ST.cars.map(c=>[c.id,`${c.chassis} (${c.model||"—"})`])]}]:[]),
+    {label:"Visibility",name:"visibility",type:"select",options:[["public","Public — fans can see it"],["team","Team only"]]},
+  ],async v=>{
+    let eid;
+    if(v.event==="__new"){
+      if(!v.newname.trim()) throw new Error("Name the event");
+      eid=(await api("/api/racing/events","POST",{team_id:ST.team.id,track_id:+v.track_id,
+        name:v.newname, series_id:v.series_id?+v.series_id:null})).id;
+    } else eid=+v.event;
+    await api("/api/racing/sessions","POST",{event_id:eid,session_type:v.session_type,
+      car_id:v.car_id?+v.car_id:null,
+      visibility:v.visibility,session_date:new Date().toISOString()});
+    toast("Session created");
+  },"Create");
+  // choosing a series narrows the circuit list to the ones it actually visits
+  const sel=ov.querySelector("[name=series_id]"), trk=ov.querySelector("[name=track_id]");
+  sel.onchange=async()=>{
+    const list = sel.value ? await api(`/api/racing/series/${sel.value}/tracks`).catch(()=>ST.tracks)
+                           : ST.tracks;
+    trk.innerHTML=list.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join("");
+  };
+}
+function logLap(){
+  if(!ST.sessions.length) return notice("No sessions yet",
+    "Create a session first — laps are logged against one.");
+  modal("Log a lap",[
+    {label:"Session",name:"run_session_id",type:"select",
+     options:ST.sessions.map(s=>[s.id,`${s.session_type.toUpperCase()} · ${s.track}`])},
+    {label:"Lap number",name:"lap_no",ph:"12"},
+    {label:"Lap time",name:"t",ph:"1:41.208"},
+    {label:"Tire",name:"tire_compound",ph:"Med"},
+  ],async v=>{
+    const ms=toMs(v.t); if(!ms) throw new Error("Time must look like 1:41.208");
+    await api("/api/racing/laps","POST",{run_session_id:+v.run_session_id,
+      lap_no:+v.lap_no||1,lap_time_ms:ms,tire_compound:v.tire_compound||""});
+    toast("Lap logged");
+  },"Log");
+}
+async function pubSession(id,cur){
+  const on=cur==="public";
+  confirmModal(on?"Unpublish session?":"Publish session?",
+    on?"Its lap times will be withdrawn from the Fan Zone."
+      :"Its lap times become visible to fans. Setups are unaffected.",
+    async()=>{await api(`/api/racing/sessions/${id}/visibility`,"PATCH",{visibility:on?"team":"public"});
+             toast(on?"Withdrawn":"Published");},on?"Unpublish":"Publish");
+}
+function newSetup(){
+  if(!ST.tracks.length) return notice("No circuits","The track library is empty.");
+  modal("New setup sheet",[
+    {label:"Key",name:"setup_key",ph:"WG-2025-Q"},
+    {label:"Track",name:"track_id",type:"select",options:ST.tracks.map(t=>[t.id,t.name])},
+    ...(ST.cars.length?[{label:"Car",name:"car_id",type:"select",
+      options:[["","— not specified —"],...ST.cars.map(c=>[c.id,c.chassis])]}]:[]),
+    {label:"Baseline",name:"baseline",ph:"WG-A"},
+    {label:"Revision",name:"revision_label",value:"A"},
+    {label:"Notes",name:"notes",type:"textarea"},
+  ],async v=>{
+    if(!v.setup_key.trim()) throw new Error("A sheet needs a key");
+    await api("/api/racing/setups","POST",{setup_key:v.setup_key,team_id:ST.team.id,
+      track_id:+v.track_id,car_id:v.car_id?+v.car_id:null,baseline:v.baseline,
+      revision_label:v.revision_label||"A",notes:v.notes});
+    ST._setupKey=v.setup_key; toast("Sheet created");
+  },"Create");
+}
+async function openSetup(key){
+  try{ ST._setup=await api("/api/racing/setups/"+encodeURIComponent(key));
+       const p=$("#setupPane"); if(p) p.innerHTML=setupPane(ST._setup); }
+  catch(e){ toast(e.message,true); }
+}
+function addValue(setupId){
+  modal("Add a setup value",[
+    {label:"Group",name:"group_name",ph:"Corner weights"},
+    {label:"Name",name:"attr_key",ph:"LF"},
+    {label:"Value",name:"attr_value",ph:"312"},
+    {label:"Unit",name:"unit",ph:"kg"},
+  ],async v=>{
+    if(!v.attr_key.trim()) throw new Error("Name the value");
+    await api(`/api/racing/setups/${setupId}/values`,"PUT",v);
+    toast("Value saved");
+  },"Add");
+}
+function cloneSetup(key){
+  modal("Clone as a new revision",[{label:"New key",name:"k",ph:key+"-B"}],
+    async v=>{ if(!v.k.trim()) throw new Error("Name the new sheet");
+      await api(`/api/racing/setups/${encodeURIComponent(key)}/clone?new_key=${encodeURIComponent(v.k)}`,"POST");
+      ST._setupKey=v.k; toast("Revision created"); },"Clone");
+}
+async function pubSetup(id,cur){
+  const on=cur==="public";
+  confirmModal(on?"Unpublish this sheet?":"Publish this setup sheet?",
+    on?"It returns to team-only."
+      :"Corner weights, dampers, alignment and aero become visible to fans. This is your IP.",
+    async()=>{await api(`/api/racing/setups/${id}/visibility`,"PATCH",{visibility:on?"team":"public"});
+             toast(on?"Back to team-only":"Published");},on?"Unpublish":"Publish");
+}
+function newChecklist(){
+  modal("New checklist",[
+    {label:"Name",name:"name",ph:"Pre-qualifying"},
+    {label:"Items (one per line)",name:"items",type:"textarea"},
+  ],async v=>{
+    if(!v.name.trim()) throw new Error("Name the checklist");
+    const items=(v.items||"").split("\n").map(s=>s.trim()).filter(Boolean);
+    await api("/api/racing/checklists","POST",{team_id:ST.team.id,name:v.name,items});
+    toast("Checklist created");
+  },"Create");
+}
+async function tick(id,done){
+  try{ await api(`/api/racing/checklist-items/${id}?done=${done}`,"PATCH"); await refresh(); }
+  catch(e){ toast(e.message,true); }
+}
+async function trackPart(){
+  let parts=[];
+  try{ parts=(await api("/api/parts?per_page=200")).items||[]; }catch(e){}
+  if(!parts.length) return notice("No PLM parts",
+    "Create a part in the PLM app first, then track it against this car.");
+  modal("Track a part",[
+    {label:"Part",name:"part_id",type:"select",options:parts.map(p=>[p.id,`${p.part_number} — ${p.part_name}`])},
+    {label:"Hours used",name:"hours_used",value:"0"},
+    {label:"Hours limit",name:"hours_limit",ph:"40"},
+  ],async v=>{
+    await api("/api/racing/parts","POST",{part_id:+v.part_id,team_id:ST.team.id,
+      hours_used:parseFloat(v.hours_used)||0,
+      hours_limit:v.hours_limit?parseFloat(v.hours_limit):null});
+    toast("Part tracked");
+  },"Track");
+}
+function logHours(id,num,cur){
+  modal(`Log hours — ${num}`,[{label:"Hours used",name:"h",value:String(cur)}],
+    async v=>{await api(`/api/racing/parts/${id}/hours`,"PATCH",{hours_used:parseFloat(v.h)||0});
+             toast("Hours updated — status re-derived");},"Save");
+}
+
+
+function askQuestion(){
+  if(!ST.sessions.length) return notice("No sessions yet","Create a session to pose a question on.");
+  modal("Ask fans a question",[
+    {label:"Session",name:"run_session_id",type:"select",
+     options:ST.sessions.map(s=>[s.id,`${s.session_type.toUpperCase()} · ${s.track}`])},
+    {label:"Question",name:"prompt",ph:"Where does the car qualify?"},
+    {label:"Options (one per line)",name:"options",type:"textarea"},
+    {label:"Points for a correct call",name:"points",value:"100"},
+  ],async v=>{
+    const opts=(v.options||"").split("\n").map(x=>x.trim()).filter(Boolean);
+    if(opts.length<2) throw new Error("Give at least two options");
+    await api(`/api/racing/questions?team_id=${ST.team.id}`,"POST",{
+      run_session_id:+v.run_session_id, prompt:v.prompt, options:opts,
+      points:parseInt(v.points)||100});
+    toast("Question posted to fans");
+  },"Ask");
+}
+async function qStatus(qid,status){
+  try{ await api(`/api/racing/questions/${qid}/status?team_id=${ST.team.id}`,"PATCH",{status});
+       toast(status==="locked"?"Locked — no more picks":"Reopened"); await refresh(); }
+  catch(e){ toast(e.message,true); }
+}
+function resolveQ(qid){
+  const q=ST.questions.find(x=>x.id===qid); if(!q) return;
+  modal("Resolve — pay the correct picks",[
+    {label:"Correct answer",name:"correct_answer",type:"select",
+     options:(q.options||[]).map(o=>[o,o])},
+  ],async v=>{
+    const r=await api(`/api/racing/questions/${qid}/resolve?team_id=${ST.team.id}`,"POST",v);
+    toast(r.already_resolved?"Already resolved":`Resolved — ${r.awarded} of ${r.picks} fans paid`);
+  },"Resolve");
+}
+
+
+async function useStarter(kind){
+  try{ await api("/api/racing/templates/starter","POST",{kind});
+       toast(`${kind} template created — edit it as your own`); await refresh(); }
+  catch(e){ toast(e.message,true); }
+}
+function newTemplate(){
+  modal("New setup template",[
+    {label:"Name",name:"name",ph:"GT3 — our baseline"},
+    {label:"Series (optional)",name:"series_id",type:"select",
+     options:[["","— any —"],...ST.series.map(x=>[x.id,x.name])]},
+    {label:"Fields — one per line as  Group | Field | Unit",name:"fields",type:"textarea"},
+  ],async v=>{
+    if(!v.name.trim()) throw new Error("Name the template");
+    const fields=(v.fields||"").split("\n").map(l=>l.trim()).filter(Boolean).map(l=>{
+      const [g,k,u]=l.split("|").map(x=>(x||"").trim());
+      return k?{group_name:g,attr_key:k,unit:u||""}:{group_name:"",attr_key:g,unit:""};
+    });
+    if(!fields.length) throw new Error("Add at least one field");
+    await api("/api/racing/templates","POST",{name:v.name,
+      series_id:v.series_id?+v.series_id:null, fields});
+    toast("Template created");
+  },"Create");
+}
+function applyTemplate(setupId){
+  modal("Apply a template",[
+    {label:"Template",name:"template_id",type:"select",
+     options:ST.templates.map(t=>[t.id,`${t.name} (${t.fields.length} fields)`])},
+  ],async v=>{
+    const r=await api(`/api/racing/setups/${setupId}/apply-template/${+v.template_id}`,"POST");
+    toast(`${r.fields_added} fields laid out`);
+    ST._setupKey=ST._setup?.setup_key;
+  },"Apply");
+}
+
+
+/* ── Import a spreadsheet ───────────────────────────────────────────────────
+   Always previews first: you see the row counts, which columns were detected
+   and which rows will be skipped, before anything is written. */
+function importDialog(kind, title, commitUrl, hint){
+  const ov=document.createElement("div"); ov.className="pk-ov";
+  ov.innerHTML=`<div class="pk-md" style="width:min(620px,100%)">
+    <h3>${esc(title)}</h3>
+    <div class="pk-bd">
+      <div class="hint">${hint}</div>
+      <div><label>CSV or Excel file</label>
+        <input type="file" name="f" accept=".csv,.tsv,.txt,.xlsx,.xlsm"></div>
+      <div id="impPrev"></div>
+      <div class="pk-err"></div>
+    </div>
+    <div class="pk-ft"><button class="btn" data-x>Cancel</button>
+      <button class="btn primary" data-ok disabled>Import</button></div></div>`;
+  document.body.appendChild(ov);
+  const close=()=>ov.remove();
+  ov.querySelector("[data-x]").onclick=close;
+  ov.onclick=e=>{if(e.target===ov)close();};
+  const fileEl=ov.querySelector("[name=f]"), okBtn=ov.querySelector("[data-ok]");
+  const prev=ov.querySelector("#impPrev"), err=ov.querySelector(".pk-err");
+
+  fileEl.onchange=async()=>{
+    err.textContent=""; prev.innerHTML=""; okBtn.disabled=true;
+    const f=fileEl.files[0]; if(!f) return;
+    const fd=new FormData(); fd.append("file",f);
+    try{
+      const r=await fetch(`/api/racing/import/${kind}/preview`,
+        {method:"POST",credentials:"same-origin",body:fd});
+      const d=await r.json();
+      if(!r.ok) throw new Error(d.detail||"Could not read that file");
+      prev.innerHTML=`<div class="card" style="box-shadow:none">
+        <div class="pad" style="padding:12px 14px">
+          <div class="spec"><span class="k">Rows in file</span><span class="v">${d.total_rows}</span></div>
+          <div class="spec"><span class="k">Will import</span><span class="v" style="color:var(--green)">${d.ready}</span></div>
+          <div class="spec"><span class="k">Will skip</span><span class="v" style="color:${d.skipped?"var(--yellow)":"var(--dim)"}">${d.skipped}</span></div>
+          <div class="spec"><span class="k">Columns found</span><span class="v" style="font-weight:400">${d.detected_columns.map(esc).join(", ")}</span></div>
+          ${d.errors.length?`<div class="eyebrow" style="margin:10px 0 6px">Skipped rows</div>
+            ${d.errors.slice(0,6).map(e=>`<div class="hint">row ${e.row}: ${esc(e.problem)}${e.value?` — "${esc(e.value)}"`:""}</div>`).join("")}
+            ${d.errors.length>6?`<div class="hint">…and ${d.errors.length-6} more</div>`:""}`:""}
+        </div></div>`;
+      okBtn.disabled = d.ready === 0;
+      if(!d.ready) err.textContent="Nothing in that file could be read. Expected columns: "+d.expected_columns;
+    }catch(e){ err.textContent=e.message; }
+  };
+
+  okBtn.onclick=async()=>{
+    const f=fileEl.files[0]; if(!f) return;
+    okBtn.disabled=true; okBtn.textContent="Importing…";
+    const fd=new FormData(); fd.append("file",f);
+    try{
+      const r=await fetch(commitUrl(),{method:"POST",credentials:"same-origin",body:fd});
+      const d=await r.json();
+      if(!r.ok) throw new Error(d.detail||"Import failed");
+      const n=d.inserted??d.values??d.total??0;
+      let msg=`Imported ${n}`;
+      if(d.unmatched_drivers?.length) msg+=` · unmatched drivers: ${d.unmatched_drivers.join(", ")}`;
+      if(d.parts_created!==undefined) msg=`${d.parts_created} parts created, ${d.usages_updated} updated`;
+      close(); toast(msg); await refresh();
+    }catch(e){ err.textContent=e.message; okBtn.disabled=false; okBtn.textContent="Import"; }
+  };
+}
+
+function importLaps(){
+  if(!ST.sessions.length) return notice("No sessions yet","Create a session first — laps import into one.");
+  const ov=modal("Import lap times",[
+    {label:"Into session",name:"sid",type:"select",
+     options:ST.sessions.map(s=>[s.id,`${s.session_type.toUpperCase()} · ${s.track}`])},
+  ],async v=>{
+    importDialog("laps","Import lap times",
+      ()=>`/api/racing/import/laps?run_session_id=${+v.sid}`,
+      "Columns: Lap, Time, Driver, Tire. Times may be 1:41.208, 101.208 or 1:41.");
+  },"Choose file…");
+}
+function importSetup(setupId){
+  importDialog("setup","Import a setup sheet",
+    ()=>`/api/racing/import/setup?setup_id=${setupId}`,
+    "Columns: Group, Field, Value, Unit — one row per setting.");
+}
+function importParts(){
+  if(!ST.team) return;
+  importDialog("parts","Import parts & service life",
+    ()=>`/api/racing/import/parts?team_id=${ST.team.id}`,
+    "Columns: Part Number, Description, Hours Used, Hours Limit. Re-importing updates hours rather than duplicating.");
+}
+
+/* ── render ────────────────────────────────────────────────────────────── */
+const VIEWS={overview:viewOverview,tracks:viewTracks,setups:viewSetups,
+             times:viewTimes,checklists:viewChecklists,parts:viewParts,car:viewCar};
+function render(){
+  renderChrome();
+  const el=$("#v-"+ST.view);
+  if(el) el.innerHTML=VIEWS[ST.view]();
+  $$(".view").forEach(v=>v.classList.toggle("show",v.id==="v-"+ST.view));
+  $$(".nav").forEach(n=>n.classList.toggle("active",n.dataset.nav===ST.view));
+  if(ST.view==="overview") drawChart($("#chart"),ST.laps);
+  if(ST.view==="times") drawChart($("#chart2"),ST.laps);
+  if(ST.view==="setups"&&ST._setupKey){const k=ST._setupKey;ST._setupKey=null;openSetup(k);}
+}
+function go(v){ ST.view=v; render(); window.scrollTo({top:0}); }
+$$(".nav").forEach(n=>n.onclick=()=>go(n.dataset.nav));
+
+(async function(){
+  try{ await loadAll(); render(); }
+  catch(e){
+    if(e.message==="auth") return;
+    // A fan account has no organization, so the team workspace legitimately
+    // refuses it. Say that plainly instead of showing a raw API error.
+    const noOrg=/no organization/i.test(e.message);
+    $("#v-overview").innerHTML=`<div class="card"><div class="empty">
+      <b>${noOrg?"This is the team workspace":"Could not load"}</b>
+      ${noOrg?"You are signed in as a fan, which belongs to no team. The Fan Zone is where you follow teams and see published lap times."
+             :esc(e.message)}
+      <div>${noOrg?`<a class="btn primary" href="/paddock">Go to the Fan Zone</a>
+        <a class="btn" href="/login" style="margin-left:8px">Sign in as a team member</a>`
+        :`<button class="btn" onclick="location.reload()">Try again</button>`}</div></div></div>`;
+    $$(".view").forEach(v=>v.classList.toggle("show",v.id==="v-overview"));
+  }
 })();
 </script>
+</body>
+</html>

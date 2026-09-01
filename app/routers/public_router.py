@@ -14,7 +14,7 @@ Result: a fan sees published lap times and results, never setups, telemetry,
 CAD or checklists. Nothing here accepts a caller-supplied org_id.
 """
 from fastapi import APIRouter, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from .. import racing
 from ..db import team_directory, tracks
@@ -105,3 +105,55 @@ async def public_leaderboard(limit: int = Query(10, ge=1, le=50)):
             .order_by(fan_profiles.c.points.desc()).limit(limit)
         ).fetchall()
     return [dict(r._mapping) for r in rows]
+
+@router.get("/laps")
+async def public_laps(limit: int = Query(20, ge=1, le=100)):
+    """Fastest published laps across every published team — the public board.
+
+    Resolved team-by-team so each read still happens inside that team's own
+    tenant session; there is no cross-tenant query anywhere in this app.
+    """
+    out = []
+    with global_session() as c:
+        teams = c.execute(
+            select(team_directory.c.team_id, team_directory.c.org_id,
+                   team_directory.c.slug, team_directory.c.name,
+                   team_directory.c.car_number)
+            .where(team_directory.c.is_public == 1)
+        ).fetchall()
+    for t in teams:
+        d = dict(t._mapping)
+        with tenant_session(d["org_id"]) as db:
+            laps = racing.list_laps(db, d["team_id"], public_only=True, limit=5)
+        for lap in laps:
+            out.append({
+                "team": d["name"], "slug": d["slug"], "car_number": d["car_number"],
+                "lap_time_ms": lap["lap_time_ms"], "driver": lap["driver"],
+                "track": lap["track"], "session_type": lap["session_type"],
+                "tire_compound": lap["tire_compound"],
+            })
+    out.sort(key=lambda r: r["lap_time_ms"])
+    return out[:limit]
+
+
+@router.get("/stats")
+async def public_stats():
+    """Headline numbers for the public landing — no invented figures."""
+    from ..db import fan_profiles, follows
+    with global_session() as c:
+        teams = c.execute(select(func.count()).select_from(team_directory)
+                          .where(team_directory.c.is_public == 1)).scalar_one()
+        circuits = c.execute(select(func.count()).select_from(tracks)).scalar_one()
+        fans = c.execute(select(func.count()).select_from(fan_profiles)).scalar_one()
+        follow_count = c.execute(select(func.count()).select_from(follows)).scalar_one()
+    return {"published_teams": teams, "circuits": circuits,
+            "fans": fans, "follows": follow_count}
+
+
+@router.get("/questions")
+async def public_questions():
+    """Open prediction questions on published sessions. The answer key is never
+    included while a question is live."""
+    from .. import predictions
+    return predictions.open_questions()
+

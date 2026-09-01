@@ -68,15 +68,40 @@ def test_no_backdrop_filter_on_fullscreen_overlays(client, path):
 # ── 4. the operating controls are actually present in the shipped markup ─────
 
 def test_racing_page_ships_its_controls(client):
+    """Assert on the endpoints the controls actually call, not on button labels —
+    labels are cosmetic and change; a missing endpoint is a missing feature."""
     body = client.get("/racing").text
     for needle, why in [
-        ("Log lap", "write action: log a lap"),
-        ("＋ Session", "write action: create a session"),
-        ("Publish sheet", "publish control: setup visibility"),
-        ("pk-team", "team switcher (workspace defaulted to an empty team without it)"),
-        ("pickTeam", "default to the team that has actually run"),
+        ('"/api/racing/laps"', "log a lap"),
+        ('"/api/racing/sessions"', "create a session"),
+        ('"/api/racing/setups"', "create a setup sheet"),
+        ("/visibility", "publish / unpublish controls"),
+        ("/public", "publish the team to the Fan Zone"),
+        ("pk-sel", "team switcher"),
+        ("localStorage", "remembering the selected team"),
     ]:
         assert needle in body, f"/racing is missing {why!r}"
+
+
+def test_racing_page_has_no_hardcoded_content(client):
+    """The page must render from the API. Literal counts and invented figures are
+    how it ended up looking like a mockup with a few live gauges."""
+    body = client.get("/racing").text
+    import re as _re
+    counts = _re.findall(r'<span class="cnt">\s*\d+\s*</span>', body)
+    assert not counts, f"hardcoded sidebar counts in the markup: {counts}"
+    for fake in ["1,847", "Crew on the timing stand", "Michelin · slick",
+                 "cross 50.4%", "Zanardi"]:
+        assert fake not in body, f"invented content still in /racing: {fake!r}"
+
+
+def test_racing_page_has_empty_states(client):
+    """Every panel must say what to do when it has no data — an empty grid reads
+    as broken."""
+    body = client.get("/racing").text
+    assert "empty" in body
+    for needle in ["No sessions yet", "No setup sheets", "No parts tracked", "No team yet"]:
+        assert needle in body, f"/racing has no empty state for {needle!r}"
 
 
 def test_paddock_page_ships_the_public_shell(client):
@@ -97,3 +122,58 @@ def test_public_pages_need_no_login(client):
 def test_private_api_still_requires_login(client):
     for path in ["/api/racing/teams", "/api/racing/setups", "/api/racing/parts"]:
         assert client.get(path).status_code == 401, f"{path} must require auth"
+
+
+# ── the fan layer must be wired to the fan API, and only the fan API ─────────
+
+def test_paddock_ships_fan_account_controls(client):
+    body = client.get("/paddock").text
+    for needle, why in [
+        ("/api/fan/register", "fan signup"),
+        ("/api/fan/follow/", "follow / unfollow"),
+        ("/api/fan/me", "the fan's own profile"),
+        ("toggleFollow", "a follow control bound to a team slug"),
+    ]:
+        assert needle in body, f"/paddock is missing {why!r}"
+
+
+# ── a MutationObserver that repaints must not be able to re-enter ────────────
+
+def test_mutation_observers_are_guarded(client):
+    """An observer on body+subtree whose callback writes to the DOM will retrigger
+    itself forever and wedge the renderer — which is exactly what happened while
+    wiring the follow buttons. Require a coalescing or re-entrancy guard."""
+    for path in ["/racing", "/paddock"]:
+        body = client.get(path).text
+        if "MutationObserver" not in body:
+            continue
+        assert ("requestAnimationFrame" in body or "painting" in body), (
+            f"{path} uses MutationObserver with no coalescing/re-entrancy guard; "
+            "a repaint inside the callback re-triggers the observer forever")
+
+
+def test_paddock_has_no_invented_content(client):
+    """The Fan Zone must show real published teams — not demo teams that do not
+    exist in the database."""
+    body = client.get("/paddock").text
+    for fake in ["Apex GT", "Northline", "Vanguard Motorsport", "Cardinal Racing",
+                 "1,847", "3,900"]:
+        assert fake not in body, f"invented content still in /paddock: {fake!r}"
+
+
+def test_paddock_has_empty_states(client):
+    body = client.get("/paddock").text
+    for needle in ["No teams have published yet", "No published laps yet",
+                   "Join the Paddock"]:
+        assert needle in body, f"/paddock has no empty state for {needle!r}"
+
+
+def test_public_board_and_stats_are_anonymous(client):
+    """The landing figures must come from the database, with no session."""
+    for path in ["/api/public/laps", "/api/public/stats"]:
+        r = client.get(path)
+        assert r.status_code == 200, f"{path} must be anonymous"
+    stats = client.get("/api/public/stats").json()
+    for key in ["published_teams", "circuits", "fans", "follows"]:
+        assert key in stats, f"/api/public/stats missing {key}"
+

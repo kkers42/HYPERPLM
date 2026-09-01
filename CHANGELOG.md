@@ -302,3 +302,220 @@ and confirmed it persisted and was flagged fastest for its session.
 - Suite run against a dedicated `hyperplm_pytest` database (the demo instance on the Atlas
   testing copy is left intact): **35 passed**.
 
+### Racing domain (Phase 3, step 9) — fan accounts (issue #6)
+
+- `app/fans.py` + `app/routers/fans_router.py`: registration, sign-in, follow/unfollow,
+  points and badges for **fans** — accounts that belong to no organization. This is the
+  other half of the association model: a member has an `org_members` row and reaches the app
+  through the tenant path; a fan has a `fan_profiles` row and no membership, so that path
+  refuses them by design (`get_principal` 403s with "No organization for this account").
+  Fans therefore use their own `current_fan` dependency, which resolves the session **without**
+  touching membership.
+- That is also the security boundary: nothing in the fan router opens a tenant session or
+  reads a tenant table. Fans touch only global tables (`fan_profiles`, `follows`,
+  `point_ledger`, `badges`, `team_directory`); published team data is read through the
+  anonymous `/api/public/*` routes, which do the directory → tenant_session →
+  `visibility='public'` resolution in one audited place.
+- Registration deliberately does **not** reuse `accounts.register_local_user`, which
+  provisions an org — that would make every fan a tenant and erase the distinction.
+- A person can be both: a member who follows a rival team gets a profile with
+  `fan_type='member'` and keeps their org access. Following a private team is refused
+  (404) so an unpublished team cannot be discovered by slug.
+- First follow awards 50 points and the *First Follow* badge; later follows award 10. Points
+  are an append-only ledger, so unfollowing does not claw them back. Following twice is
+  idempotent and does not double-award.
+- Fan Zone UI wired to the real API: Sign in / Join as a fan in the header, live follow
+  buttons on every team card and on the team page, and a signed-in summary (teams followed,
+  points, badges).
+- `tests/test_fans.py` (11 tests) covers the boundary — a fan is 403 on every tenant route,
+  member signup still provisions an org, follow/unfollow, private teams unfollowable,
+  anonymous 401, points/badges, idempotency, leaderboard, and the member-who-is-also-a-fan.
+- Two bugs found by driving the real browser rather than the API: the fan controls targeted
+  the wrong DOM (the shipped page is the full Paddock design, not the earlier simple shell),
+  and a `MutationObserver` repaint re-entered itself forever and wedged the renderer. Both
+  fixed; the observer is now coalesced through `requestAnimationFrame` with a re-entrancy
+  guard, and `tests/test_ui_contract.py` gained a check for exactly that pattern.
+- Suite: **48 passed**.
+
+### Racing domain (Phase 3, step 10) — the workspace rebuilt as a real application
+
+The workspace had been the approved design *file* with hydration scripts bolted on. That
+approach only ever made live whatever was hand-patched, so most of the page stayed mock: the
+sidebar counts (`11 / 48 / 3 / 214`) were literal HTML, and "Championship P4", "1,847 fans",
+"Rd 5", the crew avatars, the stint log, the setup card headers and the Car &amp; Build page
+were invented. The engine was real; the dashboard was largely a painting with a few live
+gauges. Rebuilt `static/racing.html` so it renders entirely from the API.
+
+- **The approved CSS is preserved verbatim** — extracted from the design and re-used, so the
+  visual language is unchanged (rule 4: this is a rewrite of one view file, not the codebase,
+  and it was requested).
+- State lives in one object; `render()` redraws the active view from it. Every count, KPI,
+  table, chart and pill is derived from the database. **Zero hardcoded content** — enforced
+  by a new test that fails on literal sidebar counts or any of the invented strings.
+- **Real empty states everywhere.** No team, no sessions, no setups, no parts, no checklists,
+  no drivers — each says what it is and offers the action that fills it, instead of rendering
+  an empty grid that reads as broken.
+- The lap chart is drawn from actual laps (session-fastest in purple, PB in green), so it is
+  blank-with-a-prompt until laps exist rather than showing a fabricated season trend.
+- Full CRUD reachable from the UI: create team / car / driver / event / session / setup sheet
+  / setup value / checklist, log laps and part hours, clone a sheet as a revision, tick
+  sign-offs, and publish or withdraw teams, sessions and sheets.
+- A fan landing on the team workspace now gets an explanation and a link to the Fan Zone
+  instead of the raw "No organization for this account" API error.
+- Contract tests updated to assert on the **endpoints the controls call** rather than button
+  labels (labels are cosmetic; a missing endpoint is a missing feature), plus two new tests:
+  no hardcoded content, and every panel has an empty state.
+- Suite: **50 passed.** Verified in the browser against real data: sidebar 23/1/5/1/3, best
+  lap 1:39.512 (a lap logged through the UI), 4 sessions all published, checklist 5/6, and a
+  Fan Visibility panel showing 4/4 sessions and 0/1 setups published.
+
+### Racing domain (Phase 3, step 11) — the Fan Zone rebuilt as a real application
+
+`/paddock` had the same problem `/racing` did: it was the design file with a few panels
+hydrated, so the Welcome, Company and Profile pages still showed invented teams (Apex GT,
+Northline, Vanguard, Cardinal — none exist), a fabricated live-timing board and a made-up
+follower count. Rebuilt so every figure comes from the database.
+
+- Two new anonymous endpoints so the public page needs no N+1 fetching from the browser:
+  `GET /api/public/laps` (fastest published laps across every published team) and
+  `GET /api/public/stats` (teams published, circuits, fans, follows). `/laps` resolves each
+  team inside **its own tenant session** — there is still no cross-tenant query anywhere.
+- The page is now the Fan Zone proper: **Teams** (browse and follow), **Fastest laps**
+  (the public board), **Circuits**, **My Paddock** (points, badges, follows, ledger,
+  leaderboard) and **What fans get** (the public/private split, which is explanatory copy
+  rather than fabricated data).
+- Real empty states throughout: no teams published, no laps published, not signed in, not
+  following anyone. A team with no data shows zeros, not invented statistics.
+- Contract tests extended: `/paddock` must contain none of the invented strings, must ship
+  its empty states, and the new public endpoints must answer anonymously.
+- Fixed while verifying in the browser: the rebuilt markup used class names from the racing
+  design against the paddock stylesheet, so the layout collapsed. The missing layout rules
+  were added using the same design tokens.
+- **Infrastructure conflict resolved.** Another session had repointed `atlas.hyperplm` at a
+  pinned production **mirror** on :4101, which left this in-development build (:4100)
+  unreachable by name — and briefly made `/paddock` 404 through nginx. Rather than take the
+  hostname back, the dev build now has its own: **http://atlas.paddock** (nginx vhost
+  `atlas-paddock`, dnsmasq entry, `hyperplm.atlas` kept as an alias). `atlas.hyperplm`
+  is left as the production mirror.
+- Suite: **53 passed.**
+
+### Racing domain (Phase 3, step 12) — predictions and scoring (issue #7)
+
+- Migration `0006_predictions.py` adds `prediction_questions`. `predictions` (0003) stored
+  free text, which cannot be scored: two fans answering "the same" question shared no
+  identity and there was no answer key. Questions are **global** (no RLS) for the same
+  reason `team_directory` is — anonymous fans read them with no active org — and carry no
+  engineering data. `predictions` gains `question_id` with a unique index, so a fan holds
+  **one pick per question**.
+- `app/predictions.py`: the loop — a team poses a question on one of its sessions, fans pick
+  while it is `open`, the team `locks` it, then `resolves` it with the correct answer and
+  every correct pick is paid. Two rules are enforced rather than trusted:
+  **resolution is idempotent** (resolving twice pays nothing the second time) and a fan may
+  only pick while open, and only from the listed options.
+- The public route strips `correct_answer` from live questions, and only exposes questions
+  whose team is published — unpublishing a team hides its questions too.
+- Resolving requires the `release` ability, the same bar as publishing, because it moves
+  points.
+- Ten correct calls grants the *10 Correct Calls* badge.
+- UI: a **Predict** tab in the Fan Zone (pick, change your mind while open, see resolved
+  calls and what they paid) and a **Fan questions** panel in the workspace (ask, lock,
+  reopen, resolve — showing pick counts).
+- **A real security bug was caught by its own test.** The first cut took `team_id` from the
+  query string and compared it to the question's `team_id` — caller-supplied data checked
+  against itself, so another org could resolve your question by passing your team id.
+  Ownership is now proven by looking the team up **through the tenant session**, where RLS
+  simply does not return another org's row. `test_another_org_cannot_touch_your_questions`
+  fails against the old code.
+- Also added `tests/test_cold_start.py`: the journey a new user actually takes on an empty
+  database — register, create team, car and driver, run a session, log laps, write and clone
+  a setup, sign off a checklist, publish, and be seen and followed by a fan. It passed first
+  run.
+- Suite: **63 passed.**
+
+### Racing domain (Phase 3, step 13) — testing-notes follow-up
+
+From the first testing pass:
+
+- **Fixed: the "Racing Workspace" and "Fan Zone" sidebar links opened a blank page.**
+  Every `.nav-link` got a click handler that called `preventDefault()`, removed `active`
+  from every panel, then did `getElementById('panel-undefined')` and threw. The two new
+  links had no `data-panel`, so they blanked the page instead of navigating. Real
+  navigations are now left alone, and `navTo` refuses an unknown panel rather than
+  clearing the page first.
+- **Fixed: the PLM app said "HYPERPLM Paddock".** That side is the PLM; it now reads
+  "HYPERPLM PLM", and the two cross-links read as destinations ("Paddock →", "Fan Zone →").
+- Migration `0007_series_and_templates.py`:
+  - `series` reference table (IMSA WeatherTech, IMSA VP Challenge, NTT IndyCar, Indy NXT —
+    real championships). An event can now record which series it belongs to.
+    **Choosing a series narrows the circuit list to the ones that series actually visits**,
+    derived from the `series_tag` already held on each track — IndyCar offers 16 of the 23
+    and does not offer Lime Rock. No calendar has been invented; `series.calendar_source`
+    is reserved to record provenance when a real feed is wired, so an imported round can
+    never be confused with one typed by hand.
+  - `setup_templates` + `setup_template_fields`, per-org and RLS-scoped: a team owns its
+    own field lists, because an IndyCar sheet is not a GT3 sheet. Two **starter field
+    lists** ship as instantiable presets (real engineering fields, not sample data): GT3
+    carries diff preload and bar positions in kg/bar; IndyCar carries weight jacker,
+    stagger and wicker in lb/psi. A team instantiates one and edits it as its own.
+  - `setups.template_id` records which template a sheet came from; applying a template lays
+    its fields onto a sheet ready to fill.
+- Suite: **69 passed**, including that picking IndyCar excludes Lime Rock while IMSA
+  includes it, that the two starter lists genuinely differ, and that templates are private
+  to their org.
+
+### Racing domain (Phase 3, step 14) — importing existing team data
+
+From the testing notes: *"how could they import their existing data?"* Nobody retypes a
+season by hand, so this is the difference between a team trying the product and moving
+into it. `app/importer.py` reads CSV and Excel; `racing.py` applies it.
+
+- **Preview, then commit.** Parsing and writing are separate calls. Before anything is
+  written you see the row count, which columns were detected, how many rows will import
+  and which will be skipped with their reasons. An import that silently half-applies is
+  worse than one that refuses.
+- **Per-row errors, not per-file.** One malformed lap does not reject a season; the bad
+  row is reported with its line number (header included, so it matches what the
+  spreadsheet shows) and the good rows import.
+- **Forgiving about real files.** Column names are matched case- and
+  punctuation-insensitively against known aliases, so `Lap`, `lap #` and `LapNo` all work;
+  the delimiter is sniffed, so semicolon exports work; and lap times parse as
+  `1:41.208`, `101.208`, `1:41` or a spreadsheet number.
+- Three importers: **laps** into a chosen session (driver names resolved against the
+  roster; unmatched names are reported rather than dropped, and PB/fastest is recomputed
+  afterwards), **setup values** onto a sheet, and **parts** which creates the PLM part if
+  it is new and otherwise updates hours — so re-importing a corrected file does not
+  duplicate anything. Part status is derived by the 0005 trigger on import exactly as on
+  manual entry.
+- Cross-tenant imports cannot land: RLS hides another org's session, so the write 404s.
+- Suite: **77 passed.** Verified through the browser against real files — preview reported
+  4 of 5 rows and wrote nothing; commit inserted exactly 4 and named the skipped row.
+
+*(One test of mine was wrong, not the code: I asserted 38/40 hours should read `over`,
+but 95% is `service_soon` — the trigger was right. Corrected, and the test now covers all
+three bands.)*
+
+### Racing domain (Phase 3, step 15) — the car as the spine
+
+From the testing notes: *"Parts & CAD are confusing to me. Car & Build also confusing —
+are we trying to connect the multiple cars a team might have to the set-ups and
+data/components?"* Yes, and the model already did; the UI never drew the line, so both
+screens read as disconnected fragments.
+
+- Migration `0008` adds `setups.car_id`. Sessions and part usages already named a car;
+  setups only named a team, so with two cars on one entry you could not answer
+  *"what was on car 74 when we set that time?"* One nullable column; existing sheets keep
+  working with no car attributed.
+- **Car & Build is now the car's page.** Pick a chassis and see its totals (sessions,
+  laps, best lap, parts due), the parts fitted to it with remaining life, the setup sheets
+  attributed to it, and every session it has run. Two cars on one team stay separate.
+- **Parts & CAD is now framed as Service Life** — every tracked part across the team, with
+  a pointer to open a single chassis under Car & Build. Same data, two honest views.
+- Creating a session or a setup sheet now lets you say which car it belongs to.
+- **A real gap surfaced:** the UI's `+ Track a part` button called
+  `POST /api/racing/parts`, which had never been written — the function existed in the
+  module but was never routed. Clicking it would have failed. Found by the car-dossier
+  test expecting a fitted part to appear. Added, along with a route to refit a part to a
+  different chassis.
+- Suite: **81 passed.** Verified live: the demo chassis reports 4 sessions, 9 laps, best
+  1:39.512, 3 parts fitted and 1 due service.
+

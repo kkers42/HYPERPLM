@@ -309,6 +309,7 @@ events = Table(
     Column("name", Text, nullable=False),
     Column("round", Integer),
     Column("starts_on", Date),
+    Column("series_id", BigInteger, ForeignKey("series.id")),
     _created(),
     Index("ix_events_org_team", "org_id", "team_id"),
     Index("ix_events_track_id", "track_id"),
@@ -368,6 +369,8 @@ setups = Table(
     Column("visibility", Text, nullable=False, server_default=text("'team'")),
     Column("engineer_id", BigInteger, ForeignKey("users.id", ondelete="SET NULL")),
     Column("notes", Text, nullable=False, server_default=text("''")),
+    Column("template_id", BigInteger, ForeignKey("setup_templates.id", ondelete="SET NULL")),
+    Column("car_id", BigInteger, ForeignKey("cars.id", ondelete="SET NULL")),
     _created(),
     UniqueConstraint("org_id", "setup_key", name="uq_setups_org_setup_key"),
     CheckConstraint("visibility IN ('public','team')", name="ck_setups_visibility"),
@@ -466,6 +469,7 @@ predictions = Table(
     Column("run_session_id", BigInteger, ForeignKey("run_sessions.id", ondelete="CASCADE")),
     Column("question", Text, nullable=False),
     Column("answer", Text, nullable=False),
+    Column("question_id", BigInteger, ForeignKey("prediction_questions.id", ondelete="CASCADE")),
     Column("is_correct", Integer),
     Column("points_awarded", Integer, nullable=False, server_default=text("0")),
     _created(),
@@ -540,6 +544,71 @@ team_directory = Table(
 )
 
 
+# ── Prediction questions — GLOBAL (no RLS): fans read them with no active org ──
+# Carries no engineering data: a prompt, its options, and the answer once
+# resolved. Public routes only expose questions on a PUBLISHED session.
+prediction_questions = Table(
+    "prediction_questions", metadata,
+    _pk(),
+    Column("run_session_id", BigInteger,
+           ForeignKey("run_sessions.id", ondelete="CASCADE"), nullable=False),
+    Column("team_id", BigInteger, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False),
+    Column("prompt", Text, nullable=False),
+    Column("options", Text, nullable=False, server_default=text("'[]'")),
+    Column("correct_answer", Text),
+    Column("status", Text, nullable=False, server_default=text("'open'")),
+    Column("points", Integer, nullable=False, server_default=text("100")),
+    _created(),
+    Column("resolved_at", TIMESTAMP(timezone=True)),
+    CheckConstraint("status IN ('open','locked','resolved')",
+                    name="ck_prediction_questions_status"),
+    Index("ix_prediction_questions_session", "run_session_id"),
+)
+
+
+# ── Series — global reference data (championships), read with no org context ──
+series = Table(
+    "series", metadata,
+    _pk(),
+    Column("series_id", Text, nullable=False, unique=True),
+    Column("name", Text, nullable=False),
+    Column("track_tag", Text, nullable=False, server_default=text("''")),
+    Column("discipline", Text, nullable=False, server_default=text("''")),
+    # where a dated calendar came from, so an imported round is never confused
+    # with one somebody typed in
+    Column("calendar_source", Text),
+    _created(),
+)
+
+# ── Setup templates — per-org field lists (a GT3 sheet differs from IndyCar) ──
+setup_templates = Table(
+    "setup_templates", metadata,
+    _pk(),
+    _org_id(),
+    Column("name", Text, nullable=False),
+    Column("series_id", BigInteger, ForeignKey("series.id")),
+    Column("description", Text, nullable=False, server_default=text("''")),
+    Column("created_by", BigInteger, ForeignKey("users.id", ondelete="SET NULL")),
+    _created(),
+    UniqueConstraint("org_id", "name", name="uq_setup_templates_org_name"),
+    Index("ix_setup_templates_org", "org_id"),
+)
+
+setup_template_fields = Table(
+    "setup_template_fields", metadata,
+    _pk(),
+    _org_id(),
+    Column("template_id", BigInteger,
+           ForeignKey("setup_templates.id", ondelete="CASCADE"), nullable=False),
+    Column("group_name", Text, nullable=False, server_default=text("''")),
+    Column("attr_key", Text, nullable=False),
+    Column("unit", Text, nullable=False, server_default=text("''")),
+    Column("default_value", Text, nullable=False, server_default=text("''")),
+    Column("field_order", Integer, nullable=False, server_default=text("0")),
+    Index("ix_setup_template_fields_template", "template_id"),
+)
+
+
 # Tables protected by row-level security (org_id + policy). Kept here as the
 # authoritative list the migrations enable RLS on and the query layer scopes.
 TENANT_TABLES: tuple[str, ...] = (
@@ -563,6 +632,8 @@ TENANT_TABLES: tuple[str, ...] = (
     "checklists",
     "checklist_items",
     "part_usages",
+    "setup_templates",
+    "setup_template_fields",
 )
 
 

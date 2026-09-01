@@ -254,6 +254,7 @@ def create_event(db: TenantDB, data: dict) -> dict:
     row = db.execute(insert(events).values(
         org_id=db.org_id, team_id=data["team_id"], track_id=data["track_id"],
         name=data["name"], round=data.get("round"), starts_on=data.get("starts_on"),
+        series_id=data.get("series_id"),
     ).returning(events)).first()
     return dict(row._mapping)
 
@@ -302,6 +303,7 @@ def create_setup(db: TenantDB, data: dict, user_id: int) -> dict:
     row = db.execute(insert(setups).values(
         org_id=db.org_id, setup_key=data["setup_key"], team_id=data["team_id"],
         track_id=data["track_id"], run_session_id=data.get("run_session_id"),
+        car_id=data.get("car_id"),
         baseline=data.get("baseline", ""), revision_label=data.get("revision_label", "A"),
         visibility=data.get("visibility", "team"), engineer_id=user_id,
         notes=data.get("notes", ""),
@@ -389,3 +391,291 @@ def set_team_public(db: TenantDB, team_id: int, is_public: bool) -> None:
         raise PermissionError("team not in this organization")
     db.execute(update(team_directory).where(team_directory.c.team_id == team_id)
                .values(is_public=1 if is_public else 0))
+
+
+# ══ SERIES & SETUP TEMPLATES (Phase 3, step 7) ════════════════════════════════
+# Raised in testing: sessions should let you pick a series and event rather than
+# retyping strings, and "IndyCar will be different than IMSA" — so a team needs
+# its own setup field lists, not one hardcoded shape.
+
+from .db import series as series_tbl  # noqa: E402
+from .db import setup_template_fields, setup_templates  # noqa: E402
+
+# Starter field lists offered when a team has no template yet. These are real
+# engineering fields for each discipline, not sample data — a team can take one
+# and edit it rather than starting from a blank sheet.
+STARTER_TEMPLATES = {
+    "GT3 / sports car": [
+        ("Corner weights", "LF", "kg"), ("Corner weights", "RF", "kg"),
+        ("Corner weights", "LR", "kg"), ("Corner weights", "RR", "kg"),
+        ("Corner weights", "Cross", "%"), ("Corner weights", "Total w/ driver", "kg"),
+        ("Springs & dampers", "Spring front", "N/mm"),
+        ("Springs & dampers", "Spring rear", "N/mm"),
+        ("Springs & dampers", "Bump LS front", "clk"),
+        ("Springs & dampers", "Bump LS rear", "clk"),
+        ("Springs & dampers", "Rebound LS front", "clk"),
+        ("Springs & dampers", "Rebound LS rear", "clk"),
+        ("Springs & dampers", "ARB front", ""), ("Springs & dampers", "ARB rear", ""),
+        ("Alignment", "Camber LF", "deg"), ("Alignment", "Camber RF", "deg"),
+        ("Alignment", "Camber LR", "deg"), ("Alignment", "Camber RR", "deg"),
+        ("Alignment", "Toe front", "mm"), ("Alignment", "Toe rear", "mm"),
+        ("Alignment", "Caster", "deg"),
+        ("Ride & aero", "Ride height front", "mm"), ("Ride & aero", "Ride height rear", "mm"),
+        ("Ride & aero", "Rake", "mm"), ("Ride & aero", "Rear wing", ""),
+        ("Ride & aero", "Front splitter", ""),
+        ("Brakes & diff", "Brake bias", "%F"), ("Brakes & diff", "Brake ducts", "%"),
+        ("Brakes & diff", "Diff preload", "Nm"),
+        ("Tires", "Compound", ""), ("Tires", "Cold pressure LF", "bar"),
+        ("Tires", "Cold pressure RF", "bar"), ("Tires", "Cold pressure LR", "bar"),
+        ("Tires", "Cold pressure RR", "bar"), ("Tires", "Target hot", "bar"),
+        ("Conditions", "Air temp", "C"), ("Conditions", "Track temp", "C"),
+        ("Conditions", "Fuel load", "L"),
+    ],
+    "IndyCar / open wheel": [
+        ("Corner weights", "LF", "lb"), ("Corner weights", "RF", "lb"),
+        ("Corner weights", "LR", "lb"), ("Corner weights", "RR", "lb"),
+        ("Corner weights", "Cross", "%"),
+        ("Springs & bars", "Spring front", "lb/in"), ("Springs & bars", "Spring rear", "lb/in"),
+        ("Springs & bars", "Third spring", "lb/in"),
+        ("Springs & bars", "Front bar", ""), ("Springs & bars", "Rear bar", ""),
+        ("Dampers", "Bump front", "clk"), ("Dampers", "Bump rear", "clk"),
+        ("Dampers", "Rebound front", "clk"), ("Dampers", "Rebound rear", "clk"),
+        ("Alignment", "Camber LF", "deg"), ("Alignment", "Camber RF", "deg"),
+        ("Alignment", "Toe front", "in"), ("Alignment", "Toe rear", "in"),
+        ("Alignment", "Stagger", "in"),
+        ("Aero", "Front wing angle", "deg"), ("Aero", "Rear wing angle", "deg"),
+        ("Aero", "Wicker", "in"), ("Aero", "Ride height front", "in"),
+        ("Aero", "Ride height rear", "in"),
+        ("Weight jacker", "Weight jacker", "turns"),
+        ("Brakes & diff", "Brake bias", "%F"), ("Brakes & diff", "Anti-roll setting", ""),
+        ("Tires", "Compound", ""), ("Tires", "Cold pressure LF", "psi"),
+        ("Tires", "Cold pressure RF", "psi"), ("Tires", "Cold pressure LR", "psi"),
+        ("Tires", "Cold pressure RR", "psi"),
+        ("Powertrain", "Boost", "kPa"), ("Powertrain", "Fuel load", "gal"),
+        ("Conditions", "Air temp", "F"), ("Conditions", "Track temp", "F"),
+    ],
+}
+
+
+def list_series(db: TenantDB) -> list[dict]:
+    return _rows(db.execute(select(series_tbl).order_by(series_tbl.c.name)))
+
+
+def tracks_for_series(db: TenantDB, series_row_id: int) -> list[dict]:
+    """The circuits a series actually visits — derived from the tag we already
+    hold on each track, rather than an invented calendar."""
+    tag = db.execute(select(series_tbl.c.track_tag)
+                     .where(series_tbl.c.id == series_row_id)).scalar()
+    if not tag:
+        return list_tracks(db)
+    return list_tracks(db, series=tag)
+
+
+def list_templates(db: TenantDB) -> list[dict]:
+    out = _rows(db.execute(
+        select(setup_templates.c.id, setup_templates.c.name,
+               setup_templates.c.description, setup_templates.c.series_id,
+               series_tbl.c.name.label("series"))
+        .select_from(setup_templates.outerjoin(
+            series_tbl, series_tbl.c.id == setup_templates.c.series_id))
+        .order_by(setup_templates.c.name)))
+    for t in out:
+        t["fields"] = _rows(db.execute(
+            select(setup_template_fields.c.id, setup_template_fields.c.group_name,
+                   setup_template_fields.c.attr_key, setup_template_fields.c.unit,
+                   setup_template_fields.c.default_value)
+            .where(setup_template_fields.c.template_id == t["id"])
+            .order_by(setup_template_fields.c.field_order)))
+    return out
+
+
+def create_template(db: TenantDB, name: str, fields: list[dict],
+                    series_row_id: Optional[int] = None,
+                    description: str = "", user_id: Optional[int] = None) -> dict:
+    row = db.execute(insert(setup_templates).values(
+        org_id=db.org_id, name=name, series_id=series_row_id,
+        description=description, created_by=user_id).returning(setup_templates)).first()
+    tpl = dict(row._mapping)
+    for i, f in enumerate(fields):
+        db.execute(insert(setup_template_fields).values(
+            org_id=db.org_id, template_id=tpl["id"],
+            group_name=f.get("group_name", ""), attr_key=f["attr_key"],
+            unit=f.get("unit", ""), default_value=f.get("default_value", ""),
+            field_order=i))
+    return tpl
+
+
+def create_starter_template(db: TenantDB, kind: str, series_row_id: Optional[int] = None,
+                            user_id: Optional[int] = None) -> dict:
+    """Instantiate one of the built-in field lists so a team can edit rather than
+    invent. The rows become the team's own — nothing is shared or locked."""
+    spec = STARTER_TEMPLATES.get(kind)
+    if not spec:
+        raise ValueError(f"Unknown starter template: {kind}")
+    fields = [{"group_name": g, "attr_key": k, "unit": u} for g, k, u in spec]
+    return create_template(db, kind, fields, series_row_id,
+                           f"Starter field list for {kind}", user_id)
+
+
+def apply_template(db: TenantDB, setup_id: int, template_id: int) -> int:
+    """Copy a template's fields onto a sheet as empty values, ready to fill."""
+    fields = _rows(db.execute(
+        select(setup_template_fields.c.group_name, setup_template_fields.c.attr_key,
+               setup_template_fields.c.unit, setup_template_fields.c.default_value)
+        .where(setup_template_fields.c.template_id == template_id)
+        .order_by(setup_template_fields.c.field_order)))
+    for i, f in enumerate(fields):
+        set_setup_value(db, setup_id, f["attr_key"], f["default_value"],
+                        f["group_name"], f["unit"], i)
+    db.execute(update(setups).where(setups.c.id == setup_id)
+               .values(template_id=template_id))
+    return len(fields)
+
+
+# ══ IMPORT (testing-notes follow-up) ══════════════════════════════════════════
+# Applying a parsed spreadsheet. Parsing lives in app/importer.py; this is the
+# part that writes, so it stays with the rest of the racing writes.
+
+def import_laps(db: TenantDB, run_session_id: int, rows: list[dict]) -> dict:
+    """Bulk-insert laps into one session, resolving driver names to this team's
+    drivers where they match. Unknown driver names are kept on the lap as-is
+    rather than silently dropped, so nothing is lost in translation."""
+    sess = db.execute(select(run_sessions.c.id, run_sessions.c.event_id,
+                             run_sessions.c.visibility)
+                      .where(run_sessions.c.id == run_session_id)).first()
+    if not sess:
+        raise ValueError("Session not found")
+    team_id = db.execute(select(events.c.team_id)
+                         .where(events.c.id == sess._mapping["event_id"])).scalar()
+    known = {d["name"].strip().lower(): d["id"] for d in _rows(db.execute(
+        select(drivers.c.id, drivers.c.name).where(drivers.c.team_id == team_id)))}
+
+    inserted, unmatched = 0, set()
+    for r in rows:
+        did = None
+        nm = (r.get("driver_name") or "").strip().lower()
+        if nm:
+            did = known.get(nm)
+            if did is None:
+                unmatched.add(r["driver_name"].strip())
+        db.execute(insert(laps).values(
+            org_id=db.org_id, run_session_id=run_session_id,
+            lap_no=r["lap_no"], lap_time_ms=r["lap_time_ms"], driver_id=did,
+            tire_compound=r.get("tire_compound", ""),
+            visibility=sess._mapping["visibility"]))
+        inserted += 1
+    _reflag_session(db, run_session_id)
+    return {"inserted": inserted, "unmatched_drivers": sorted(unmatched)}
+
+
+def import_setup_values(db: TenantDB, setup_id: int, rows: list[dict]) -> dict:
+    own = db.execute(select(setups.c.id).where(setups.c.id == setup_id)).first()
+    if not own:
+        raise ValueError("Setup sheet not found")
+    for i, r in enumerate(rows):
+        set_setup_value(db, setup_id, r["attr_key"], r["attr_value"],
+                        r.get("group_name", ""), r.get("unit", ""), i)
+    return {"values": len(rows)}
+
+
+def import_parts(db: TenantDB, team_id: int, car_id: Optional[int],
+                 rows: list[dict], user_id: int) -> dict:
+    """Create the PLM part if it doesn't exist yet, then track its service life.
+    Re-importing the same file updates hours rather than duplicating parts."""
+    own = db.execute(select(teams.c.id).where(teams.c.id == team_id)).first()
+    if not own:
+        raise ValueError("Team not found")
+    created, updated = 0, 0
+    for r in rows:
+        pid = db.execute(select(parts.c.id)
+                         .where(parts.c.part_number == r["part_number"])).scalar()
+        if pid is None:
+            pid = db.execute(insert(parts).values(
+                org_id=db.org_id, part_number=r["part_number"],
+                part_name=r["part_name"], created_by=user_id).returning(parts.c.id)).scalar()
+            created += 1
+        existing = db.execute(select(part_usages.c.id).where(
+            part_usages.c.part_id == pid, part_usages.c.team_id == team_id)).scalar()
+        if existing:
+            db.execute(update(part_usages).where(part_usages.c.id == existing).values(
+                hours_used=r["hours_used"], hours_limit=r["hours_limit"]))
+            updated += 1
+        else:
+            db.execute(insert(part_usages).values(
+                org_id=db.org_id, part_id=pid, team_id=team_id, car_id=car_id,
+                hours_used=r["hours_used"], hours_limit=r["hours_limit"]))
+    return {"parts_created": created, "usages_updated": updated,
+            "total": len(rows)}
+
+
+def car_dossier(db: TenantDB, car_id: int) -> Optional[dict]:
+    """Everything that hangs off one car — the answer to "what is on this car,
+    what has it run, and what was it set up like?"
+
+    The database already joined these; nothing showed them together, which is
+    why the Car & Build and Parts & CAD screens read as disconnected fragments.
+    """
+    car = db.execute(select(cars).where(cars.c.id == car_id)).first()
+    if not car:
+        return None
+    car = dict(car._mapping)
+
+    team = db.execute(select(teams.c.id, teams.c.name, teams.c.car_number,
+                             teams.c.series, teams.c["class"])
+                      .where(teams.c.id == car["team_id"])).first()
+
+    sessions = _rows(db.execute(
+        select(run_sessions.c.id, run_sessions.c.session_type,
+               run_sessions.c.session_date, run_sessions.c.visibility,
+               events.c.name.label("event"), tracks.c.name.label("track"),
+               func.count(laps.c.id).label("lap_count"),
+               func.min(laps.c.lap_time_ms).label("best_ms"))
+        .select_from(run_sessions.join(events, events.c.id == run_sessions.c.event_id)
+                     .join(tracks, tracks.c.id == events.c.track_id)
+                     .outerjoin(laps, laps.c.run_session_id == run_sessions.c.id))
+        .where(run_sessions.c.car_id == car_id)
+        .group_by(run_sessions.c.id, run_sessions.c.session_type,
+                  run_sessions.c.session_date, run_sessions.c.visibility,
+                  events.c.name, tracks.c.name)
+        .order_by(run_sessions.c.session_date.desc())))
+
+    fitted = _rows(db.execute(
+        select(part_usages.c.id, part_usages.c.hours_used, part_usages.c.hours_limit,
+               part_usages.c.status, parts.c.part_number, parts.c.part_name,
+               parts.c.part_revision, parts.c.id.label("plm_part_id"))
+        .select_from(part_usages.join(parts, parts.c.id == part_usages.c.part_id))
+        .where(part_usages.c.car_id == car_id)
+        .order_by(part_usages.c.status.desc(), part_usages.c.hours_used.desc())))
+    for p in fitted:
+        lim = p.get("hours_limit")
+        p["life_pct"] = round(100 * p["hours_used"] / lim) if lim else None
+
+    sheets = _rows(db.execute(
+        select(setups.c.id, setups.c.setup_key, setups.c.revision_label,
+               setups.c.visibility, tracks.c.name.label("track"))
+        .select_from(setups.join(tracks, tracks.c.id == setups.c.track_id))
+        .where(setups.c.car_id == car_id)
+        .order_by(setups.c.created_at.desc())))
+
+    best = min((s["best_ms"] for s in sessions if s["best_ms"]), default=None)
+    return {
+        "car": car,
+        "team": dict(team._mapping) if team else None,
+        "sessions": sessions,
+        "parts": fitted,
+        "setups": sheets,
+        "totals": {
+            "sessions": len(sessions),
+            "laps": sum(s["lap_count"] or 0 for s in sessions),
+            "best_lap_ms": best,
+            "parts_fitted": len(fitted),
+            "parts_due": sum(1 for p in fitted if p["status"] != "ok"),
+        },
+    }
+
+
+def list_cars(db: TenantDB, team_id: Optional[int] = None) -> list[dict]:
+    stmt = select(cars).order_by(cars.c.chassis)
+    if team_id:
+        stmt = stmt.where(cars.c.team_id == team_id)
+    return _rows(db.execute(stmt))
